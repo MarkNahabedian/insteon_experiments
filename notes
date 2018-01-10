@@ -1,0 +1,55 @@
+dmesg ~ grep -i usb
+
+keyboard vertical bar comes out as tilde.
+
+/dev/ttyUSB0
+
+
+import serial
+
+ser = serial.Serial('/dev/ttyUSB0')
+ser.bytesize = serial.EIGHTBITS
+ser.baudrate = 19200
+
+
+Get insteon modem info: 0x02 0x60
+
+def modeminfo():
+  ser.write('' + chr(2) + chr(0x60))
+  return ser.read(100)
+
+
+command codes
+
+0x03 product data request
+0x0F ping
+0x10 ID request
+0x11 on
+0x13 off
+0x19 status request
+0x30 beep
+
+
+The all-linking process is initiated by pressing the button on the
+insteon modem or by sending the modem a "start all-linking" command.
+After that the set button of another device should be pushed.
+
+pressing and holding a module button resulted in message
+02 53 01 01 0f 83 8f 02 09 32
+ |  |  |  |  |  |  |  |  |  +---- device firmware version or oxFF
+ |  |  |  |  |  |  |  |  +------- device subcategory
+ |  |  |  |  |  |  |  +---------- device category
+ |  |  |  |  +--+--+------------- button device's id
+ |  |  |  +---------------------- all-link group
+ |  |  +------------------------- modem is controller
+ |  +---------------------------- "all-linking completed"
+ +------------------------------- start byte
+
+
+All-link database management
+
+0x69 "get first all-link record" command
+0x57 "all-link record response"
+0x6A "get next all-link record"
+
+NAK indicates no more entries

@@ -3,7 +3,7 @@
 import abc
 import serial
 import time
-
+from translator import *
 
 debug = False
 
@@ -82,64 +82,39 @@ class InsteonDevice(Device):
                               self.address_byte3),
       self.category, self.subcategory, self.firmware_version)
 
-  def ping(self, modem):
-    assert isinstance(modem, InsteonModem)
-    command = modem.command(modem.CMD_PING)
-    modem.sendCommand(command)
-    response = modem.readResponse()
-    im.check_echo(command, response)
-    return response[2] == im.ACK
+  # def ping(self, modem):
+  #   assert isinstance(modem, InsteonModem)
+  #   command = modem.command(modem.CMD_PING)
+  #   modem.sendCommand(command)
+  #   response = modem.readResponse()
+  #   im.check_echo(command, response)
+  #   return response[2] == im.ACK
 
-  def id_request(self, modem):
-    assert isinstance(modem, InsteonModem)
-    command = modem.command(modem.CMD_ID_REQUEST)
-    modem.sendCommand(command)
-    response = modem.readResponse()
-    im.check_echo(command, response)
-    
+  # def id_request(self, modem):
+  #   assert isinstance(modem, InsteonModem)
+  #   command = modem.command(modem.CMD_ID_REQUEST)
+  #   modem.sendCommand(command)
+  #   response = modem.readResponse()
+  #   im.check_echo(command, response)
 
-  def on(self, modem):
-    assert isinstance(modem, InsteonModem)
-    pass
+  # def on(self, modem):
+  #   assert isinstance(modem, InsteonModem)
+  #   pass
 
-  def off(self, modem):
-    assert isinstance(modem, InsteonModem)
-    im.command(
+  # def off(self, modem):
+  #   assert isinstance(modem, InsteonModem)
+  #   im.command(
       
-      im.CMD_OFF)
-
-
+  #     im.CMD_OFF)
 
 pass
 
 
 class InsteonModem (object):
-  ACK = 0x06  # last byte of a response
-  NACK = 0x15  # Modem wasn't ready.
-
-  HOST_MSG = 0x60
-  IM_MSG = 0x50
-
-  CMD_1STBYTE = 0x02  # First byte of a command.
-
-  CMD_PING = 0x0F
-  CMD_ID_REQUEST = 0x10
-  CMD_ON = 0x11
-  CMD_OFF = 0x13
-  CMD_STATUS_REQUEST = 0x19
-  CMD_BEEP = 0x30
-  CMD_GET_IM_INFO = 0x60  # get information about the Insteon modem itself.
-  CMD_GET_1ST_LINK = 0x69  # initiate reading the modem's link database
-  CMD_GET_NEXT_LINK = 0x6A
-  ANS_LINKING_COMPLETED = 0x53
-  ANS_LINK_DB_RECORD_RESPONSE = 0x57
-  ANS_BUTTON_EVENT = 0x54
-  # The high digit of these button event types is the button number,
-  # where the SET button is button 0.
-  BUTTON_TAPPED = 0x02
-  BUTTON_PRESS_AND_HOLD = 0x03
-  BUTTON_RELEASED = 0x04
-
+  '''
+  InsteonModem mediates communication with an Insteon serial modem.
+  '''
+  
   def __init__(self, port_path):
     self.port_path = port_path
     self.serial = serial.Serial(port_path)
@@ -149,18 +124,20 @@ class InsteonModem (object):
     self.devices = {}
     pass
 
-  def command(self, *cmdbytes):
-    msg = bytearray()
-    if cmdbytes[0] != self.CMD_1STBYTE:
-      msg.append(self.CMD_1STBYTE)
-    for b in cmdbytes:
-      msg.append(b)
-    return msg
+  ### Do we still need this?
+  # def command(self, *cmdbytes):
+  #   msg = bytearray()
+  #   if cmdbytes[0] != self.CMD_1STBYTE:
+  #     msg.append(self.CMD_1STBYTE)
+  #   for b in cmdbytes:
+  #     msg.append(b)
+  #   return msg
 
-  def standardCommand(self):
-    pass
+  # def standardCommand(self):
+  #   pass
 
   def sendCommand(self, command):
+    isinstance(command, bytearray)
     if debug: print("sending command %s" % hexdump(command))
     self.serial.write(command)
 
@@ -171,23 +148,25 @@ class InsteonModem (object):
       if not b:
         break
       msg.append(b)
-      if b in (self.ACK, self.NACK):
+      if b in AckNack.acceptable_bytes():
         break
     if debug: print("receiving response %s" % hexdump(msg))
     return msg
 
   def modeminfo(self):
-    self.sendCommand(self.command(self.CMD_GET_IM_INFO))
+    self.sendCommand(bytearray(GetModemInfo().encode()))
     response = self.readResponse()
-    if response[0] != self.CMD_1STBYTE: return response
-    if response[1] != 0x60: return response
-    addr1 = response[2]
-    addr2 = response[3]
-    addr3 = response[4]
-    category = response[5]
-    subcategory = response[6]
-    firmware = response[7]
-    if response[8] != self.ACK: return response
+    i, length = ModemInfoResponse.interpret(response, 0)
+
+    # if response[0] != self.CMD_1STBYTE: return response
+    # if response[1] != 0x60: return response
+    # addr1 = response[2]
+    # addr2 = response[3]
+    # addr3 = response[4]
+    # category = response[5]
+    # subcategory = response[6]
+    # firmware = response[7]
+    # if response[8] != self.ACK: return response
     id = InsteonDevice.deviceID(addr1, addr2, addr3)
     device = InsteonDevice.lookup(id)
     if not device:
@@ -254,10 +233,12 @@ class InsteonModem (object):
   pass
 
 
-im = InsteonModem("/dev/ttyUSB0")
-im.load_devices()
-InsteonDevice.list_devices()
-debug = True
+try:
+  im = InsteonModem("/dev/ttyUSB0")
+  im.load_devices()
+  InsteonDevice.list_devices()
+finally:
+  debug = True
 
 InsteonDevice.lookup("49.93.bf").ping(im)  # modem
 InsteonDevice.lookup("0f.82.9e").ping(im)

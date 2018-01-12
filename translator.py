@@ -59,6 +59,7 @@ class ByteCode(Translator):
 
   @classmethod
   def byte_code_match(cls, byte_code):
+    ### Maybe this should use acceptable_bytes
     return byte_code == cls.byte_code
 
   @classmethod
@@ -68,22 +69,36 @@ class ByteCode(Translator):
       return None, 0
     return cls(), 1
 
+  @classmethod
+  def acceptable_bytes(cls):
+    values = []
+    def walk(cls):
+      bc = cls.__dict__.get('byte_code', None)
+      if bc != None:
+        values.append(bc)
+      for sc in cls.__subclasses__():
+        walk(sc)
+    walk(cls)
+    return tuple(values)
+
+  @classmethod
+  def interpret(cls, bytes, start_index):
+    b = bytes[start_index]
+    def walk(cls):
+      bc = cls.__dict__.get('byte_code', None)
+      if b == bc:
+        return cls
+      for sc in cls.__subclasses__():
+        walk(sc)
+    f = walk(cls)
+    if f: return f(), 1
+    return None, 0
+
   def __str__(self):
     return "%s-%02x" % (self.__class__.__name__, self.__class__.byte_code)
 
   def __repr__(self):
     return "%s()" % self.__class__.__name__
-
-
-def _find_byte_code_in_family(cls, byte_code):
-  # Depth first search.
-  for sc in cls.__subclasses__():
-    if cls.byte_code_match(byte_code):
-      return sc
-    found = _find_byte_code_in_family(sc, byte_code)
-    if found:
-      return found
-  return None
 
 
 def bytecodes(family, **bytecodes):
@@ -94,13 +109,6 @@ def bytecodes(family, **bytecodes):
       superclass = type(family, (superclass,), {})
       superclass.__metaclass__ = abc.ABCMeta
       globals()[family] = superclass
-      ### We would like for interpret() on a byte code family to look
-      ### through all of the subclasses of the family for a match.
-      def _interpret(cls, bytes, start_index):
-        f = _find_byte_code_in_family(cls, bytes[start_index])
-        if f: return f(), 1
-        return None, 0
-      superclass.interpret = _interpret
   for (name, bytecode) in bytecodes.items():
     c = type(name, (Singleton, superclass), {})
     globals()[name] = c
@@ -196,6 +204,17 @@ class InsteonAddress(Translator):
                           bytes[start_index + 1],
                           bytes[start_index + 2]), 3
 
+  def __eq__(self, other):
+    return (self.address1 == other.address1 and
+            self.address2 == other.addres32 and
+            self.address3 == other.address1 and)
+
+  def __ne__(self, other):
+    return not (self == other)
+
+  def __hash__(self):
+    return (((self.address1<<8) | self.address2)<<8) | self.address3
+
 
 class Pattern(Translator):
   __metaclass__ = abc.ABCMeta
@@ -229,17 +248,53 @@ class Pattern(Translator):
       v, advance = tt.interpret(bytes, index)
       if v == None:
         return None, 0
-      values.append(v)
+      if not isinstance(v, Singleton):
+        values.append(v)
       index += advance
     return cls(*values), index - start_index
 
 
 def pattern(name, token_types):
+  formal_params = []
+  super_args = []
   for tt in token_types:
     assert issubclass(tt, Translator)
-  pat = type(name, (Singleton, Pattern), {})
+    if issubclass(tt, Singleton):
+      super_args.append(tt())
+    else:
+      super_args.append(len(formal_params))
+      formal_params.append(tt)
+  # Note that the initialization arguments include only the
+  # non-constant elements of the pattern.  The constant ones are
+  # filled in automatically.
+  pat = type(name, (Pattern,) if formal_params else (Singleton, Pattern), {})
   pat.pattern = token_types
+  def _init(self, *args):
+    for i in range(len(self.__class__.parameter_types)):
+      a = args[i]
+      tt = self.__class__.parameter_types[i]
+      assert isinstance(a, tt), "isinstance(%r, %r)" % (a, tt)
+    super_args = []
+    for param in self.__class__.super_initargs:
+      if isinstance(param, Translator):
+        super_args.append(param)
+      else:
+        super_args.append(args[param])
+    super(self.__class__, self).__init__(*super_args)
+  pat.super_initargs = tuple(super_args)
+  pat.parameter_types = tuple(formal_params)
+  pat.__init__ = _init
   globals()[name] = pat
+
+
+pattern('GetModemInfo', (StartByte, GetModemInfoCmd))
+pattern('ModemInfoResponse', (
+  StartByte, GetModemInfoCmd,
+  InsteonAddress,
+  Byte, # category
+  Byte, # subcategory
+  Byte, # firmware version of 0xFF
+  Ack))
 
 pattern('LinkDBRecord', (
   StartByte,
@@ -251,5 +306,5 @@ pattern('LinkDBRecord', (
 
 
 # rec = LinkDBRecord.interpret(bytearray(b'\x02\x6a\x06\x02\x57\xe2\x01\x0f\x82\x9e\x02\x09\x32'), 3)
-# LinkDBRecord.encode(rec)
+# LinkDBRecord.encode(rec[0])
 

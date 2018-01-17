@@ -41,20 +41,16 @@ class Device(object):
 class InsteonDevice(Device):
   devices = {}
 
-  @staticmethod
-  def deviceID(byte1, byte2, byte3):
-    return "%02x.%02x.%02x" % (byte1, byte2, byte3)
-
   @classmethod
   def lookup(cls, *args):
-    if len(args) == 1 and isinstance(args[0], str):
-      id = args[0]
+    if len(args) == 1 and isinstance(args[0], InsteonAddress):
+      addr = args[0]
     elif len(args) == 3:
-      id = cls.deviceID(args[0], args[1], args[2])
+      addr = InsteonAddress(*args)
     else:
       raise Exception("Bad parameters %s" % repr(args))
-    if id in cls.devices:
-      return cls.devices[id]
+    if addr in cls.devices:
+      return cls.devices[addr]
     return None
 
   @classmethod
@@ -62,25 +58,19 @@ class InsteonDevice(Device):
     for d in cls.devices.values():
       print(str(d))
 
-  def __init__(self, address_byte1, address_byte2, address_byte3):
+  def __init__(self, insteonAddress):
+    assert isinstance(insteonAddress, InsteonAddress)
     super(InsteonDevice, self).__init__()
-    id = self.deviceID(address_byte1, address_byte2, address_byte3)
-    if self.__class__.lookup(id):
+    if self.__class__.lookup(insteonAddress):
       raise DeviceExists(id)
-    self.address_byte1 = address_byte1
-    self.address_byte2 = address_byte2
-    self.address_byte3 = address_byte3
+    self.address = insteonAddress
     self.category = None
     self.subcategory = None
     self.firmware_version = None
-    self.__class__.devices[id] = self
+    self.__class__.devices[self.address] = self
 
-  def __str__(self):
-    return "<insteon device %s %r/%r %r>" % (
-      self.__class__.deviceID(self.address_byte1,
-                              self.address_byte2,
-                              self.address_byte3),
-      self.category, self.subcategory, self.firmware_version)
+  def __repr__(self):
+    return '%s(%r)' % (self.__class__.__name__, self.address)
 
   # def ping(self, modem):
   #   assert isinstance(modem, InsteonModem)
@@ -124,20 +114,11 @@ class InsteonModem (object):
     self.devices = {}
     pass
 
-  ### Do we still need this?
-  # def command(self, *cmdbytes):
-  #   msg = bytearray()
-  #   if cmdbytes[0] != self.CMD_1STBYTE:
-  #     msg.append(self.CMD_1STBYTE)
-  #   for b in cmdbytes:
-  #     msg.append(b)
-  #   return msg
-
   # def standardCommand(self):
   #   pass
 
   def sendCommand(self, command):
-    isinstance(command, bytearray)
+    assert isinstance(command, bytearray)
     if debug: print("sending command %s" % hexdump(command))
     self.serial.write(command)
 
@@ -157,23 +138,12 @@ class InsteonModem (object):
     self.sendCommand(bytearray(GetModemInfo().encode()))
     response = self.readResponse()
     i, length = ModemInfoResponse.interpret(response, 0)
-
-    # if response[0] != self.CMD_1STBYTE: return response
-    # if response[1] != 0x60: return response
-    # addr1 = response[2]
-    # addr2 = response[3]
-    # addr3 = response[4]
-    # category = response[5]
-    # subcategory = response[6]
-    # firmware = response[7]
-    # if response[8] != self.ACK: return response
-    id = InsteonDevice.deviceID(addr1, addr2, addr3)
-    device = InsteonDevice.lookup(id)
+    device = InsteonDevice.lookup(i.InsteonAddress)
     if not device:
-      device = InsteonDevice(addr1, addr2, addr3)
-      device.category = category
-      device.subcategory = subcategory
-      device.firmware_version = firmware
+      device = InsteonDevice(i.InsteonAddress)
+      device.category = i.Category
+      device.subcategory = i.Subcategory
+      device.firmware_version = i.FirmwareVersion
     return device
 
   def listen(self):
@@ -198,33 +168,24 @@ class InsteonModem (object):
 
   def read_link_db(self):
     links = []
-    command = self.command(self.CMD_GET_1ST_LINK)
-    self.sendCommand(command)
+    self.sendCommand(bytearray(Get1stLinkCommand().encode()))
+
     while True:
       response = self.readResponse()
-      self.check_echo(command, response)
-      if response[2] != self.ACK:
+      i, length = GetLinkResponse.interpret(response, 0)
+      if debug: print("interpreted response: %r" % i)
+      if not isinstance(i.AckNack, Ack):
         break
-      response = response[4:]
-      self.check_echo(self.command(self.ANS_LINK_DB_RECORD_RESPONSE)[1:],
-                      response)
-      flags = response[1]
-      group = response[2]
-      addr1 = response[3]
-      addr2 = response[4]
-      addr3 = response[5]
-      data = response[6:9]
-      if debug:
-        print("%02x %d %s %s" % (
-          flags, group,
-          InsteonDevice.deviceID(addr1, addr2, addr3),
-          hexdump(data)))
-      id = InsteonDevice.deviceID(addr1, addr2, addr3)
-      device = InsteonDevice.lookup(id)
+      record, length = LinkDBRecord.interpret(response, length)
+      if debug: print(repr(record))
+      flags = record.Flags
+      group = record.LinkGroup
+      address = record.InsteonAddress
+      device = InsteonDevice.lookup(address)
       if not device:
-        InsteonDevice(addr1, addr2, addr3)
-      command = self.command(self.CMD_GET_NEXT_LINK)
-      self.sendCommand(command)
+        device = InsteonDevice(address)
+      if debug: print(repr(device))
+      self.sendCommand(bytearray(GetNextLinkCommand().encode()))
 
   def load_devices(self):
     self.modeminfo()
@@ -234,12 +195,13 @@ class InsteonModem (object):
 
 
 try:
+  debug = False
   im = InsteonModem("/dev/ttyUSB0")
   im.load_devices()
   InsteonDevice.list_devices()
 finally:
   debug = True
 
-InsteonDevice.lookup("49.93.bf").ping(im)  # modem
-InsteonDevice.lookup("0f.82.9e").ping(im)
-InsteonDevice.lookup("0f.83.8f").ping(im)
+# InsteonDevice.lookup(InsteonAddress(0x49, 0x93, 0xBF)).ping(im)  # modem
+# InsteonDevice.lookup(InsteonAddress(0x0F, 0x82, 0x9e)).ping(im)
+# InsteonDevice.lookup(InsteonAddress(0x0f, 0x83, 0x9e)).ping(im)

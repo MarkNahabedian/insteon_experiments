@@ -18,20 +18,62 @@ import abc
 from singleton import Singleton
 
 
+class NoMatch(Exception):
+  '''NoMatch is raised when a Translator.interpret method fails to match
+  the binary data.'''
+  def __init__(self, trans, bytes, index):
+    self.translator = trans
+    self.bytearray = bytes
+    self.start_index = index
+  def __str__(self):
+    return "%r, %r[%d]" % (self.translator, self.bytearray, self.start_index)
+
+
 class Translator(object):
   __metaclass__ = abc.ABCMeta
+
+  @classmethod
+  def _showstr(cls):
+    return _showstr_name(cls)
 
   # encode returns a sequence of bytes representing the interpretation.
   @abc.abstractmethod
   def encode(self):
-    pass
+    raise Exception("No encode method")
 
   # interpret extracts bytes from bytes starting at start_index and
-  # returns an interpretation and the number of bytes consubed.
+  # returns an interpretation and the number of bytes consumed.
+  # Raises NoMatch if the bytes could not be interpreted by this
+  # Translator class.
   @classmethod
   @abc.abstractmethod
   def interpret(cls, bytes, start_index):
+    raise Exception("No interpret method")
     pass
+
+
+# See if the data can be interpreted as sone subclass of cls.
+def _interpret_as_subclass(cls, bytes, start_index):
+  for sc in cls.__subclasses__():
+    try:
+      return sc.interpret(bytes, start_index)
+    except NoMatch as e:
+      pass
+  raise NoMatch(cls, bytes, start_index)
+
+
+def show_translators():
+  def walk(tc, level):
+    print('%s%s' % ('  '*level, tc._showstr()))
+    for sc in tc.__subclasses__():
+      walk(sc, level + 1)
+  walk(Translator, 0)
+
+def _showstr_name(cls):
+  if issubclass(cls, Singleton):
+    return cls.__name__
+  else:
+    return '<%s>' % cls.__name__
 
 
 class Byte(Translator):
@@ -54,6 +96,14 @@ class Byte(Translator):
 
 
 class ByteCode(Translator):
+  '''ByteCode is the superclass of all single byte codes that have a specific interpretation.'''
+  @classmethod
+  def _showstr(cls):
+    bc = cls.__dict__.get('byte_code', None)
+    if bc == None:
+      return super(ByteCode, cls)._showstr()
+    return '%s: \t 0x%02x' % (_showstr_name(cls), cls.byte_code)
+
   def encode(self):
     return (self.__class__.byte_code,)
 
@@ -66,7 +116,7 @@ class ByteCode(Translator):
   def interpret(cls, bytes, start_index):
     b = bytes[start_index]
     if not cls.byte_code_match(b):
-      return None, 0
+      raise NoMatch(cls, bytes, start_index)
     return cls(), 1
 
   @classmethod
@@ -83,16 +133,16 @@ class ByteCode(Translator):
 
   @classmethod
   def interpret(cls, bytes, start_index):
+    if start_index >= len(bytes):
+      raise NoMatch(cls, bytes, start_index)
     b = bytes[start_index]
-    def walk(cls):
-      bc = cls.__dict__.get('byte_code', None)
-      if b == bc:
-        return cls
-      for sc in cls.__subclasses__():
-        walk(sc)
-    f = walk(cls)
-    if f: return f(), 1
-    return None, 0
+    bc = cls.__dict__.get('byte_code', None)
+    if bc == None:
+      return _interpret_as_subclass(cls, bytes, start_index)
+    elif b == bc: return cls(), 1
+    else:
+      raise NoMatch(cls, bytes, start_index)
+    
 
   def __str__(self):
     return "%s-%02x" % (self.__class__.__name__, self.__class__.byte_code)
@@ -105,7 +155,10 @@ def bytecodes(family, **bytecodes):
   superclass = ByteCode
   # ***** Why are the classes defined with __module__ "abc" instead of here?
   if family:
-    if not globals().get(family):
+    if globals().get(family):
+      superclass = globals().get(family)
+      assert issubclass(superclass, Translator)
+    else:
       superclass = type(family, (superclass,), {})
       superclass.__metaclass__ = abc.ABCMeta
       globals()[family] = superclass
@@ -120,6 +173,8 @@ bytecodes('AckNack',
           Ack=0x06,
           Nack=0x15)
   
+# Ack.interpret(bytearray(b'\x06'), 0)   -> (Ack(), 1)
+
 bytecodes('MessageOrigin',
           OriginModem=0x50,
           OriginHost=0x60)
@@ -133,16 +188,22 @@ bytecodes('CommandCode',
           StatusRequestCmd=0x19,
           # get information about the Insteon modem itself.
           GetModemInfoCmd=0x60,
+          AllLinkCmd=0x61,
           # initiate reading the modem's link database
-          Get1stLinkCmd=0x69,
-          GetNextLinkCmd=0x6A,
 )
 
+class GetLinkCmd(CommandCode):
+  __metaclass__ = abc.ABCMeta
+
+bytecodes('GetLinkCmd',
+          Get1stLinkCmd=0x69,
+          GetNextLinkCmd=0x6A)
+
+          
 bytecodes('ResponseCode',
           LinkingCompletedRsp=0x53,
           LinkDbRecordRsp=0x57,
-          ButtonEvent=0x54
-)
+          ButtonEvent=0x54)
 
 
 bytecodes('ButtonAction',
@@ -174,7 +235,7 @@ class ButtonEvent(Translator):
     bn = b >> 4
     act = b and 0x0F
     if bn in self.__class__.button_numbers:
-      return None, 0
+      raise NoMatch(cls, bytes, start_index)
     # TODO: serify that act is a valid ButtonAction
     return ButtonEvent(bn, act), 1
 
@@ -200,14 +261,17 @@ class InsteonAddress(Translator):
 
   @classmethod
   def interpret(cls, bytes, start_index):
+    if start_index + 3 >= len(bytes):
+      raise NoMatch(cls, bytes, start_index)
     return InsteonAddress(bytes[start_index],
                           bytes[start_index + 1],
                           bytes[start_index + 2]), 3
 
   def __eq__(self, other):
-    return (self.address1 == other.address1 and
+    return (isinstance(other, InsteonAddress) and
+            self.address1 == other.address1 and
             self.address2 == other.addres32 and
-            self.address3 == other.address1 and)
+            self.address3 == other.address3)
 
   def __ne__(self, other):
     return not (self == other)
@@ -219,11 +283,24 @@ class InsteonAddress(Translator):
 class Pattern(Translator):
   __metaclass__ = abc.ABCMeta
 
+  @classmethod
+  def _showstr(cls):
+    pat = cls.__dict__.get('pattern', None)
+    if pat == None:
+      return super(Pattern, cls)._showstr()
+    return '%s: \t %s' % (_showstr_name(cls), ', '.join(
+      [_showstr_name(p) for p in pat]))
+
   def __init__(self, *tokens):
     for i in range(len(self.__class__.pattern)):
       tt = self.__class__.pattern[i]
-      v = tokens[i]
+      if i > len(tokens) and issubclass(tt, Singleton):
+        v = tt()
+      else:
+        v = tokens[i]
       assert isinstance(v, tt)
+      if not issubclass(tt, Singleton):
+        self.__dict__[tt.__name__] = a
     self.values = tokens
   
   def __str__(self):
@@ -232,7 +309,12 @@ class Pattern(Translator):
 
   def __repr__(self):
     return "%s(%s)" % (self.__class__.__name__,
-                     ', '.join([repr(v) for v in self.values]))
+                     ', '.join([repr(v)
+                                for v in self.values
+                                # if len([pt
+                                #         for pt in self.__class__.parameter_types
+                                # if isinstance(v, pt)]) > 0
+                                ]))
 
   def encode(self):
     msg = []
@@ -242,69 +324,110 @@ class Pattern(Translator):
 
   @classmethod
   def interpret(cls, bytes, start_index):
+    # print('%s.interpret(%r, %d)' % (cls.__name__, bytes, start_index))
     index = start_index
     values = []
-    for tt in cls.pattern:
+    pattern = cls.__dict__.get('pattern', None)
+    if pattern == None:
+      return _interpret_as_subclass(cls, bytes, start_index)
+    for tt in pattern:
       v, advance = tt.interpret(bytes, index)
-      if v == None:
-        return None, 0
-      if not isinstance(v, Singleton):
-        values.append(v)
+      values.append(v)
       index += advance
     return cls(*values), index - start_index
 
 
-def pattern(name, token_types):
-  formal_params = []
-  super_args = []
+def pattern(name, superclasses, token_types):
+  if len(superclasses) == 0:
+    superclasses = (Pattern,)
+  nonconstant_token_types = []
+  # super_args = []
   for tt in token_types:
     assert issubclass(tt, Translator)
-    if issubclass(tt, Singleton):
-      super_args.append(tt())
-    else:
-      super_args.append(len(formal_params))
-      formal_params.append(tt)
-  # Note that the initialization arguments include only the
-  # non-constant elements of the pattern.  The constant ones are
-  # filled in automatically.
-  pat = type(name, (Pattern,) if formal_params else (Singleton, Pattern), {})
+    if not issubclass(tt, Singleton):
+      nonconstant_token_types.append(tt)
+  # We can fully initialize a Pattern given only tokens from
+  # nonconstant_token_types, but there are cases where we have a full
+  # list of tokens that we want to initialize from without having to
+  # filter out the constant ones, so our __init__ method should cope
+  # witheither set of initargs.
+  if not nonconstant_token_types:
+    superclasses = (Singleton,) + superclasses
+  pat = type(name, superclasses, {})
   pat.pattern = token_types
+  pat.nonconstant_token_types = nonconstant_token_types
   def _init(self, *args):
-    for i in range(len(self.__class__.parameter_types)):
-      a = args[i]
-      tt = self.__class__.parameter_types[i]
-      assert isinstance(a, tt), "isinstance(%r, %r)" % (a, tt)
-    super_args = []
-    for param in self.__class__.super_initargs:
-      if isinstance(param, Translator):
-        super_args.append(param)
-      else:
-        super_args.append(args[param])
-    super(self.__class__, self).__init__(*super_args)
-  pat.super_initargs = tuple(super_args)
-  pat.parameter_types = tuple(formal_params)
+    if len(args) == len(pat.pattern):
+      self.values = args
+    elif len(args) == len(pat.nonconstant_token_types):
+      self.values = []
+      argindex = 0
+      for tt in self.pattern:
+        if argindex < len(args) and isinstance(args[argindex], tt):
+          v = args[argindex]
+          argindex += 1
+        else:
+          v = tt()
+        self.values.append(v)
+    else:
+      raise Exception("Wrong number of arguments to __init__.  Expected %d or %d" % (
+        len(pat.nonconstant_token_types), len(pat.pattern)))
+    for i in range(len(self.pattern)):
+      tt = self.pattern[i]
+      v = self.values[i]
+      if not issubclass(tt, Singleton):
+        self.__dict__[tt.__name__] = v
   pat.__init__ = _init
   globals()[name] = pat
 
 
-pattern('GetModemInfo', (StartByte, GetModemInfoCmd))
-pattern('ModemInfoResponse', (
-  StartByte, GetModemInfoCmd,
+class Category(Byte): pass
+class Subcategory(Byte): pass
+class FirmwareVersion(Byte): pass
+
+pattern('GetModemInfo', (), (StartByte, GetModemInfoCmd))
+pattern('ModemInfoResponse', (), (
+  GetModemInfo, # echoed command
   InsteonAddress,
-  Byte, # category
-  Byte, # subcategory
-  Byte, # firmware version of 0xFF
+  Category,
+  Subcategory,
+  FirmwareVersion,
   Ack))
 
-pattern('LinkDBRecord', (
+class Flags (Byte): pass
+class LinkGroup(Byte): pass
+class LinkData1 (Byte): pass
+class LinkData2 (Byte): pass
+class LinkData3 (Byte): pass
+
+pattern('LinkDBRecord', (), (
   StartByte,
-  Byte, # flags
-  Byte, # link group
+  LinkDbRecordRsp,
+  Flags,
+  LinkGroup,
   InsteonAddress,
-  Byte, Byte, Byte # data
+  LinkData1, LinkData2, LinkData3
   ))
+
+class ReadLinkDBCommand(Pattern):
+  __metaclass__ = abc.ABCMeta
+
+pattern('Get1stLinkCommand', (ReadLinkDBCommand,), (StartByte, Get1stLinkCmd))
+pattern('GetNextLinkCommand', (ReadLinkDBCommand,), (StartByte, GetNextLinkCmd))
+pattern('GetLinkResponse', (), (ReadLinkDBCommand, AckNack))
 
 
 # rec = LinkDBRecord.interpret(bytearray(b'\x02\x6a\x06\x02\x57\xe2\x01\x0f\x82\x9e\x02\x09\x32'), 3)
 # LinkDBRecord.encode(rec[0])
 
+class Group(Byte): pass
+
+# bytecodes(OpenClosed, Closed=0x00, Open=0xff)
+
+# pattern(SendCommand, (
+#   StartByte,
+#   AllLinkCmd,
+#   Group,
+#   AllLinkCommand,
+#   OpenClosed
+#   ))

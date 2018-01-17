@@ -72,13 +72,14 @@ class InsteonDevice(Device):
   def __repr__(self):
     return '%s(%r)' % (self.__class__.__name__, self.address)
 
-  # def ping(self, modem):
-  #   assert isinstance(modem, InsteonModem)
-  #   command = modem.command(modem.CMD_PING)
-  #   modem.sendCommand(command)
-  #   response = modem.readResponse()
-  #   im.check_echo(command, response)
-  #   return response[2] == im.ACK
+  def ping(self, modem):
+    assert isinstance(modem, InsteonModem)
+    command = SendMessageCommand(self.address, MessageFlags(0), PingCmd(), Command2(0x01))
+    modem.sendCommand(bytearray(command.encode()))
+    response = modem.readResponse()
+    echoed, length = SendMessageCommand.interpret(response, 0)
+    ack, length = AckNack.interpret(response, length)
+    return ack is Ack()
 
   # def id_request(self, modem):
   #   assert isinstance(modem, InsteonModem)
@@ -202,6 +203,7 @@ try:
 finally:
   debug = True
 
-# InsteonDevice.lookup(InsteonAddress(0x49, 0x93, 0xBF)).ping(im)  # modem
-# InsteonDevice.lookup(InsteonAddress(0x0F, 0x82, 0x9e)).ping(im)
-# InsteonDevice.lookup(InsteonAddress(0x0f, 0x83, 0x9e)).ping(im)
+InsteonDevice.lookup(InsteonAddress(0x49, 0x93, 0xbf)).ping(im)  # modem
+InsteonDevice.lookup(InsteonAddress(0x0f, 0x83, 0x8f)).ping(im)
+InsteonDevice.lookup(InsteonAddress(0x0f, 0x82, 0x9e)).ping(im)
+

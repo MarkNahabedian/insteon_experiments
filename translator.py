@@ -180,16 +180,10 @@ bytecodes('MessageOrigin',
           OriginHost=0x60)
 
 bytecodes('CommandCode',
-          PingCmd=0x0F,
-          BeepCmd=0x30,
-          OnCmd=0x11,
-          OffCmd=0x13,
-          IdRequestCmd=0x10,
-          StatusRequestCmd=0x19,
           # get information about the Insteon modem itself.
           GetModemInfoCmd=0x60,
           AllLinkCmd=0x61,
-          # initiate reading the modem's link database
+          SendMessageCmd=0x62
 )
 
 class GetLinkCmd(CommandCode):
@@ -204,6 +198,25 @@ bytecodes('ResponseCode',
           LinkingCompletedRsp=0x53,
           LinkDbRecordRsp=0x57,
           ButtonEvent=0x54)
+
+class InsteonMessage(Translator):
+  __metaclass__ = abc.ABCMeta
+
+class InsteonStandardMessage(InsteonMessage):
+  __metaclass__ = abc.ABCMeta
+
+class InsteonExtendedMessage(InsteonMessage):
+  __metaclass__ = abc.ABCMeta
+
+
+bytecodes('StandardDirectCommand',
+          PingCmd=0x0F,
+          BeepCmd=0x30,
+          OnCmd=0x11,
+          OffCmd=0x13,
+          IdRequestCmd=0x10,
+          StatusRequestCmd=0x19
+)
 
 
 bytecodes('ButtonAction',
@@ -270,7 +283,7 @@ class InsteonAddress(Translator):
   def __eq__(self, other):
     return (isinstance(other, InsteonAddress) and
             self.address1 == other.address1 and
-            self.address2 == other.addres32 and
+            self.address2 == other.address2 and
             self.address3 == other.address3)
 
   def __ne__(self, other):
@@ -367,6 +380,7 @@ def pattern(name, superclasses, token_types):
           v = args[argindex]
           argindex += 1
         else:
+          assert issubclass(tt, Singleton), '%r is not a subclass of Singleton' % tt
           v = tt()
         self.values.append(v)
     else:
@@ -412,22 +426,46 @@ pattern('LinkDBRecord', (), (
 class ReadLinkDBCommand(Pattern):
   __metaclass__ = abc.ABCMeta
 
-pattern('Get1stLinkCommand', (ReadLinkDBCommand,), (StartByte, Get1stLinkCmd))
-pattern('GetNextLinkCommand', (ReadLinkDBCommand,), (StartByte, GetNextLinkCmd))
-pattern('GetLinkResponse', (), (ReadLinkDBCommand, AckNack))
+pattern('Get1stLinkCommand', (ReadLinkDBCommand,),
+        (StartByte, Get1stLinkCmd))
+pattern('GetNextLinkCommand', (ReadLinkDBCommand,),
+        (StartByte, GetNextLinkCmd))
+pattern('GetLinkResponse', (),
+        (ReadLinkDBCommand, AckNack))
 
 
 # rec = LinkDBRecord.interpret(bytearray(b'\x02\x6a\x06\x02\x57\xe2\x01\x0f\x82\x9e\x02\x09\x32'), 3)
 # LinkDBRecord.encode(rec[0])
 
-class Group(Byte): pass
-
 # bytecodes(OpenClosed, Closed=0x00, Open=0xff)
 
-# pattern(SendCommand, (
+# pattern('SendAllLinkCommand', (
 #   StartByte,
 #   AllLinkCmd,
-#   Group,
-#   AllLinkCommand,
-#   OpenClosed
+#   LinkGroup,
+#   Command1,
+#   Command2,
+#   Byte ### what is this?
 #   ))
+
+class MessageFlags(Byte):
+  # bit 4 = 1 for an extended message
+  # bits 6 and 7 set for all-link broadcast.
+  pass
+
+
+class Command2(Byte): pass
+
+pattern('SendMessageCommand', (), (
+  StartByte, SendMessageCmd, InsteonAddress,
+  MessageFlags, StandardDirectCommand, Command2))
+
+# pattern('StandardMessageReceived', (),
+#         (SendCommand, AckNack))
+
+class FromAddress(InsteonAddress): pass
+class ToAddress(InsteonAddress): pass
+
+pattern('StandardMessageReceived', (), (
+  StartByte, OriginModem, FromAddress, ToAddress,
+  MessageFlags, StandardDirectCommand, Command2))

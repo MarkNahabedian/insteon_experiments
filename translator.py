@@ -408,16 +408,46 @@ pattern('ModemInfoResponse', (), (
   FirmwareVersion,
   Ack))
 
-class Flags (Byte): pass
+class Flags (Translator):
+  def __init__(self, **args):
+    self.flags = 0
+    for key, val in args.items():
+      if key in self.__class__.FlagBits:
+        bit = self.__class__.FlagBits[key]
+        if val:
+          self.flags |= bit
+        else:
+          self.flags &= ~bit
+      else:
+        raise Exception(">Unsupported flag property: %s" % key)
+
+  def __repr__(self):
+    args = []
+    for key, val in self.__class__.FlagBits.items():
+      args.append("%s=%r" % (key, (self.flags & val) == val))
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(args))
+
+  def encode(self):
+    return (self.flags,)
+
+  @classmethod
+  def interpret(cls, bytes, start_index):
+    i = cls()
+    i.flags = bytes[start_index]
+    return cls, 1
+
+  
 class LinkGroup(Byte): pass
 class LinkData1 (Byte): pass
 class LinkData2 (Byte): pass
 class LinkData3 (Byte): pass
 
+class LinkDBRecordFlags(Byte): pass
+
 pattern('LinkDBRecord', (), (
   StartByte,
   LinkDbRecordRsp,
-  Flags,
+  LinkDBRecordFlags,
   LinkGroup,
   InsteonAddress,
   LinkData1, LinkData2, LinkData3
@@ -448,10 +478,12 @@ pattern('GetLinkResponse', (),
 #   Byte ### what is this?
 #   ))
 
-class MessageFlags(Byte):
-  # bit 4 = 1 for an extended message
-  # bits 6 and 7 set for all-link broadcast.
-  pass
+class MessageFlags(Flags):
+  FlagBits = {
+    'extended': 0x10,   # 1 -> extended command
+    'link_cleanup': 0x40,
+    'link_cleanup_ack': 0x20
+    }
 
 
 class Command2(Byte): pass

@@ -74,7 +74,7 @@ class InsteonDevice(Device):
 
   def ping(self, modem):
     assert isinstance(modem, InsteonModem)
-    command = SendMessageCommand(self.address, MessageFlags(0), PingCmd(), Command2(0x01))
+    command = SendMessageCommand(self.address, MessageFlags(extended=False), PingCmd(), Command2(0x01))
     modem.sendCommand(bytearray(command.encode()))
     response = modem.readResponse()
     echoed, length = SendMessageCommand.interpret(response, 0)
@@ -179,7 +179,7 @@ class InsteonModem (object):
         break
       record, length = LinkDBRecord.interpret(response, length)
       if debug: print(repr(record))
-      flags = record.Flags
+      flags = record.LinkDBRecordFlags
       group = record.LinkGroup
       address = record.InsteonAddress
       device = InsteonDevice.lookup(address)

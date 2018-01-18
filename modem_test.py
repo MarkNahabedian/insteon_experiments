@@ -72,33 +72,31 @@ class InsteonDevice(Device):
   def __repr__(self):
     return '%s(%r)' % (self.__class__.__name__, self.address)
 
-  def ping(self, modem):
+  def _simple_command(self, modem, cmd):
+    response_index = 0
     assert isinstance(modem, InsteonModem)
-    command = SendMessageCommand(self.address, MessageFlags(extended=False), PingCmd(), Command2(0x01))
+    assert isinstance(cmd, StandardDirectCommand)
+    command = SendMessageCommand(self.address, MessageFlags(extended=False), IdRequestCmd(), Command2(0x01))
     modem.sendCommand(bytearray(command.encode()))
     response = modem.readResponse()
-    echoed, length = SendMessageCommand.interpret(response, 0)
-    ack, length = AckNack.interpret(response, length)
+    echoed, length = SendMessageCommand.interpret(response, response_index)
+    response_index += length
+    ### Should check echo.
+    ack, length = AckNack.interpret(response, response_index)
+    response_index += length
     return ack is Ack()
 
-  # def id_request(self, modem):
-  #   assert isinstance(modem, InsteonModem)
-  #   command = modem.command(modem.CMD_ID_REQUEST)
-  #   modem.sendCommand(command)
-  #   response = modem.readResponse()
-  #   im.check_echo(command, response)
+  def ping(self, modem):
+    return self._simple_command(modem, PingCmd())
 
-  # def on(self, modem):
-  #   assert isinstance(modem, InsteonModem)
-  #   pass
+  def id_request(self, modem):
+    return self._simple_command(modem, IdRequestCmd())
 
-  # def off(self, modem):
-  #   assert isinstance(modem, InsteonModem)
-  #   im.command(
-      
-  #     im.CMD_OFF)
+  def on(self, modem):
+    return self._simple_command(modem, OnCmd())
 
-pass
+  def off(self, modem):
+    return self._simple_command(modem, OffCmd())
 
 
 class InsteonModem (object):
@@ -120,7 +118,7 @@ class InsteonModem (object):
 
   def sendCommand(self, command):
     assert isinstance(command, bytearray)
-    if debug: print("sending command %s" % hexdump(command))
+    if debug: print("sending command    %s" % hexdump(command))
     self.serial.write(command)
 
   def readResponse(self):

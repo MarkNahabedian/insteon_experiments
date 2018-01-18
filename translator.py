@@ -210,6 +210,7 @@ class InsteonExtendedMessage(InsteonMessage):
 
 
 bytecodes('StandardDirectCommand',
+          AssignToGroupCmd=0x01,
           PingCmd=0x0F,
           BeepCmd=0x30,
           OnCmd=0x11,
@@ -434,7 +435,7 @@ class Flags (Translator):
   def interpret(cls, bytes, start_index):
     i = cls()
     i.flags = bytes[start_index]
-    return cls, 1
+    return i, 1
 
   
 class LinkGroup(Byte): pass
@@ -491,9 +492,6 @@ class Command2(Byte): pass
 pattern('SendMessageCommand', (), (
   StartByte, SendMessageCmd, InsteonAddress,
   MessageFlags, StandardDirectCommand, Command2))
-
-# pattern('StandardMessageReceived', (),
-#         (SendCommand, AckNack))
 
 class FromAddress(InsteonAddress): pass
 class ToAddress(InsteonAddress): pass

@@ -18,6 +18,25 @@ import abc
 from singleton import Singleton
 
 
+class BitMask(object):
+  def __init__(self, size, leftshift):
+    self.size = size
+    self.leftshift = leftshift
+    self.mask = 0
+    for i in range(self.size):
+      self.mask = (self.mask << 1) | 1
+    self.mask <<= self.leftshift
+
+  def __repr__(self):
+    return 'BitMask(%d, %d)' % (self.size, self.leftshift)
+
+  def extract_from(self, bits):
+    return (bits & (self.mask)) >> self.leftshift
+
+  def align(self, value):
+    return value << (self.leftshift) & self.mask
+
+
 class NoMatch(Exception):
   '''NoMatch is raised when a Translator.interpret method fails to match
   the binary data.'''
@@ -409,23 +428,31 @@ pattern('ModemInfoResponse', (), (
   FirmwareVersion,
   Ack))
 
+
 class Flags (Translator):
   def __init__(self, **args):
     self.flags = 0
     for key, val in args.items():
       if key in self.__class__.FlagBits:
-        bit = self.__class__.FlagBits[key]
-        if val:
-          self.flags |= bit
+        bitmask = self.__class__.FlagBits[key]
+        if bitmask.size == 1:
+          if val == 1 or val == True:
+            self.flags |= bitmask.mask
+          else:
+            self.flags &= ~bitmask.mask
         else:
-          self.flags &= ~bit
+          self.flags &= ~bitmask.mask
+          self.flags |= bitmask.align(val)
       else:
         raise Exception(">Unsupported flag property: %s" % key)
 
   def __repr__(self):
     args = []
-    for key, val in self.__class__.FlagBits.items():
-      args.append("%s=%r" % (key, (self.flags & val) == val))
+    for key, bitmask in self.__class__.FlagBits.items():
+      val = bitmask.extract_from(self.flags)
+      if bitmask.size == 1:
+        val = val == 1
+      args.append("%s=%r" % (key, val))
     return '%s(%s)' % (self.__class__.__name__, ', '.join(args))
 
   def encode(self):
@@ -481,9 +508,12 @@ pattern('GetLinkResponse', (),
 
 class MessageFlags(Flags):
   FlagBits = {
-    'extended': 0x10,   # 1 -> extended command
-    'link_cleanup': 0x40,
-    'link_cleanup_ack': 0x20
+    'max_hops':       BitMask(2, 0),
+    'hops_remaining': BitMask(2, 2),
+    'extended':       BitMask(1, 4),   # 1 -> extended command
+    'acknowledge':    BitMask(1, 5),
+    'group':          BitMask(1, 6),
+    'broadcast_NACK': BitMask(1, 7)
     }
 
 

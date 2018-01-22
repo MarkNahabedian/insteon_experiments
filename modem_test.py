@@ -81,7 +81,7 @@ class InsteonDevice(Device):
     response = modem.readResponse()
     echoed, length = SendMessageCommand.interpret(response, response_index)
     response_index += length
-    ### Should check echo.
+     ### Should check echo.
     ack, length = AckNack.interpret(response, response_index)
     response_index += length
     return ack is Ack()
@@ -112,9 +112,6 @@ class InsteonModem (object):
     self.serial.timeout = 1
     self.devices = {}
     pass
-
-  # def standardCommand(self):
-  #   pass
 
   def sendCommand(self, command):
     assert isinstance(command, bytearray)

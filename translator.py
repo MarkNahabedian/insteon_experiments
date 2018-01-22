@@ -199,6 +199,7 @@ bytecodes('AckNack',
 
 bytecodes('MessageOrigin',
           OriginModem=0x50,
+          OriginModem58=0x58,
           OriginHost=0x60)
 
 bytecodes('CommandCode',
@@ -241,6 +242,12 @@ bytecodes('StandardDirectCommand',
           StatusRequestCmd=0x19,
           SetOperatingFlagsCmd=0x20
 )
+
+
+# bytecodes('AllLinkCommand',
+#           OnCmd=0x11,
+#           OffCmd=0x13,
+# )          
 
 
 bytecodes('ButtonAction',
@@ -513,14 +520,13 @@ pattern('GetLinkResponse', (),
 
 # bytecodes(OpenClosed, Closed=0x00, Open=0xff)
 
-# pattern('SendAllLinkCommand', (
-#   StartByte,
-#   AllLinkCmd,
-#   LinkGroup,
-#   Command1,
-#   Command2,
-#   Byte ### what is this?
-#   ))
+pattern('SendAllLinkCommand', (), (
+  StartByte,
+  AllLinkCmd,
+  LinkGroup,
+  StandardDirectCommand,
+  Byte  # Command2
+  ))
 
 class MessageFlags(Flags):
   FlagBits = {
@@ -535,7 +541,7 @@ class MessageFlags(Flags):
     'response':    BitMask(1, 5),
     # When the group flag is set the message id a group message
     'group':          BitMask(1, 6),
-    # If acknowledge is set 0 for ACK, 1 for NACK,
+    # If response is set 0 for ACK, 1 for NACK,
     # otherwise this bit is set for broadcast messages.
     # No acknowledgement is sent for broadcast messages.
     'broadcast_NACK': BitMask(1, 7)
@@ -562,3 +568,4 @@ class ToAddress(InsteonAddress):
 pattern('StandardMessageReceived', (), (
   StartByte, OriginModem, FromAddress, ToAddress,
   MessageFlags, StandardDirectCommand, Command2))
+

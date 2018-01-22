@@ -73,12 +73,15 @@ class Translator(object):
 
 # See if the data can be interpreted as sone subclass of cls.
 def _interpret_as_subclass(cls, bytes, start_index):
+  best_failure = None
   for sc in cls.__subclasses__():
     try:
       return sc.interpret(bytes, start_index)
     except NoMatch as e:
-      pass
-  raise NoMatch(cls, bytes, start_index)
+      if best_failure is None or e.start_index >= best_failure.start_index:
+        best_failure = e
+  assert best_failure
+  raise best_failure
 
 
 def show_translators():
@@ -235,7 +238,8 @@ bytecodes('StandardDirectCommand',
           OnCmd=0x11,
           OffCmd=0x13,
           IdRequestCmd=0x10,
-          StatusRequestCmd=0x19
+          StatusRequestCmd=0x19,
+          SetOperatingFlagsCmd=0x20
 )
 
 
@@ -470,7 +474,19 @@ class LinkData1 (Byte): pass
 class LinkData2 (Byte): pass
 class LinkData3 (Byte): pass
 
-class LinkDBRecordFlags(Byte): pass
+class LinkDBRecordFlags(Flags):
+  FlagBits = {
+    'in_use': BitMask(1, 7),  # 0 means unused (empty) record
+    'modem_is_controller': BitMask(1, 6),  # 1 indocates that the Insteon modem is a controller.
+    'product_dependent': BitMask(2, 4),
+    'reserved': BitMask(2, 2),  # should be 00
+    # not_high_water_mark is 0 for a record that has never been
+    # allocated before. not_high_waterMack=0 only appears internally
+    # to the device.  It will never appear in a response.
+    'not_high_water_mark': BitMask(1, 1),
+    'reserved0': BitMask(1, 0)
+  }
+
 
 pattern('LinkDBRecord', (), (
   StartByte,
@@ -508,11 +524,20 @@ pattern('GetLinkResponse', (),
 
 class MessageFlags(Flags):
   FlagBits = {
+    # Maximum number of retransmissions allowed.
+    # 00 means do not retransmit.
     'max_hops':       BitMask(2, 0),
+    # Number of message retransmissions remaining.
     'hops_remaining': BitMask(2, 2),
-    'extended':       BitMask(1, 4),   # 1 -> extended command
-    'acknowledge':    BitMask(1, 5),
+    # 0 for a standard length message, 1 for aqn extended message.
+    'extended':       BitMask(1, 4),
+    # This bit is set in responses to a direct or group message.
+    'response':    BitMask(1, 5),
+    # When the group flag is set the message id a group message
     'group':          BitMask(1, 6),
+    # If acknowledge is set 0 for ACK, 1 for NACK,
+    # otherwise this bit is set for broadcast messages.
+    # No acknowledgement is sent for broadcast messages.
     'broadcast_NACK': BitMask(1, 7)
     }
 
@@ -524,7 +549,15 @@ pattern('SendMessageCommand', (), (
   MessageFlags, StandardDirectCommand, Command2))
 
 class FromAddress(InsteonAddress): pass
-class ToAddress(InsteonAddress): pass
+
+class ToAddress(InsteonAddress):
+  # For non-group broadcast messages, this is not a device address but
+  # instead is interpreted as the category, subcategory and revision
+  # number of the sender.
+  #
+  # For group broadcast messages the first two bytes are 0 and the third
+  # byte is the group number.
+  pass
 
 pattern('StandardMessageReceived', (), (
   StartByte, OriginModem, FromAddress, ToAddress,

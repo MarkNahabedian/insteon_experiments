@@ -187,6 +187,17 @@ class InsteonModem (object):
     self.modeminfo()
     self.read_link_db()
 
+  def groupOn(self, group_number):
+    command = SendAllLinkCommand(LinkGroup(group_number), OnCmd(), Byte(0))
+    im.sendCommand(bytearray(command.encode()))
+    response = self.readResponse()
+
+  def groupOff(self, group_number):
+    command = SendAllLinkCommand(LinkGroup(group_number), OffCmd(), Byte(0))
+    im.sendCommand(bytearray(command.encode()))
+    response = self.readResponse()
+
+
   pass
 
 

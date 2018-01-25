@@ -1,9 +1,20 @@
 # Simple testing of the insteon modem.
 
+# This module sends pydispatch signals with the following names:
+#
+#   'MODEM_COMMAND'     for receivers that care about what messages
+#                       are sent to the Insteon mode
+#   'MODEM_RESPONSE'    for messages that are received back from
+#                       the Insteon modem.
+
+
 import abc
+import actions
+from pydispatch import dispatcher
 import serial
 import time
 from translator import *
+import insteon_logging
 
 debug = False
 
@@ -92,7 +103,6 @@ class InsteonDevice(Device):
 
   def status(self, modem):
     acked, response, response_index = self._simple_command(modem, StatusRequestCmd())
-    
 
   def on(self, modem):
     return self._simple_command(modem, OnCmd())
@@ -117,6 +127,11 @@ class InsteonModem (object):
 
   def sendCommand(self, command):
     assert isinstance(command, bytearray)
+    # dispatch results are ignored.
+    dispatcher.send(signal='MODEM_COMMAND',
+                    sender=self,
+                    timestamp=time.localtime(),
+                    bytes=command)
     if debug: print("sending command    %s" % hexdump(command))
     self.serial.write(command)
 
@@ -129,6 +144,11 @@ class InsteonModem (object):
       msg.append(b)
       if b in AckNack.acceptable_bytes():
         break
+    # dispatch results are ignored.
+    dispatcher.send(signal='MODEM_RESPONSE',
+                    sender=self,
+                    timestamp=time.localtime(),
+                    bytes=msg)
     if debug: print("receiving response %s" % hexdump(msg))
     return msg
 
@@ -202,6 +222,8 @@ class InsteonModem (object):
 
 
 
+actions.run('onStartup')
+
 try:
   debug = False
   im = InsteonModem("/dev/ttyUSB0")
@@ -214,3 +236,4 @@ InsteonDevice.lookup(InsteonAddress(0x49, 0x93, 0xbf)).ping(im)  # modem
 InsteonDevice.lookup(InsteonAddress(0x0f, 0x83, 0x8f)).ping(im)
 InsteonDevice.lookup(InsteonAddress(0x0f, 0x82, 0x9e)).ping(im)
 
+# actions.run('onShutdown')

@@ -79,18 +79,20 @@ class InsteonDevice(Device):
     command = SendMessageCommand(self.address, MessageFlags(extended=False), IdRequestCmd(), Command2(0x01))
     modem.sendCommand(bytearray(command.encode()))
     response = modem.readResponse()
-    echoed, length = SendMessageCommand.interpret(response, response_index)
+    echoed, length = ReadFromModem.interpret(response, response_index)
     response_index += length
      ### Should check echo.
-    ack, length = AckNack.interpret(response, response_index)
-    response_index += length
-    return ack is Ack()
+    return echoed.AckNack is Ack(), response, response_index
 
   def ping(self, modem):
     return self._simple_command(modem, PingCmd())
 
   def id_request(self, modem):
     return self._simple_command(modem, IdRequestCmd())
+
+  def status(self, modem):
+    acked, response, response_index = self._simple_command(modem, StatusRequestCmd())
+    
 
   def on(self, modem):
     return self._simple_command(modem, OnCmd())
@@ -168,12 +170,13 @@ class InsteonModem (object):
 
     while True:
       response = self.readResponse()
-      i, length = GetLinkResponse.interpret(response, 0)
+      i, length = ReadFromModem.interpret(response, 0)
       if debug: print("interpreted response: %r" % i)
       if not isinstance(i.AckNack, Ack):
         break
-      record, length = LinkDBRecord.interpret(response, length)
-      if debug: print(repr(record))
+      interpreted, length = AllLinkRecordResponse.interpret(response, length)
+      if debug: print(repr(interpreted))
+      record = interpreted.LinkDBRecord
       flags = record.LinkDBRecordFlags
       group = record.LinkGroup
       address = record.InsteonAddress
@@ -197,8 +200,6 @@ class InsteonModem (object):
     im.sendCommand(bytearray(command.encode()))
     response = self.readResponse()
 
-
-  pass
 
 
 try:

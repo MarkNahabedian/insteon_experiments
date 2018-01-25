@@ -18,6 +18,19 @@ import abc
 from singleton import Singleton
 
 
+def interpret_all(msg):
+  index = 0;
+  messages = []
+  try:
+    while index < len(msg):
+      interpreted, length = ReadFromModem.interpret(msg, index)
+      index += length
+      messages.append(interpreted)
+  except NoMatch as e:
+    return messages, index, e
+  return messages, index, None
+
+
 class BitMask(object):
   def __init__(self, size, leftshift):
     self.size = size
@@ -194,13 +207,18 @@ bytecodes(None, StartByte=0x02)
 bytecodes('AckNack',
           Ack=0x06,
           Nack=0x15)
-  
-# Ack.interpret(bytearray(b'\x06'), 0)   -> (Ack(), 1)
 
 bytecodes('MessageOrigin',
-          OriginModem=0x50,
-          OriginModem58=0x58,
-          OriginHost=0x60)
+          OriginModemCode=0x50,
+          ExtendedMessageReceivedCode=0x51,
+          X10ReceivedCode=0x52,
+          AllLinkingCompletedCode=0x53,
+          ButtonEventReportCode=0x54,
+          UserResetDetectedCode=0x55,
+          AllLinkCleanupFailureReportCode=0x56,
+          AllLinkRecordResponseCode=0x57,
+          AllLinkCleanupStatusCode=0x58,
+          OriginHostCode=0x60)
 
 bytecodes('CommandCode',
           # get information about the Insteon modem itself.
@@ -217,11 +235,6 @@ bytecodes('GetLinkCmd',
           GetNextLinkCmd=0x6A)
 
           
-bytecodes('ResponseCode',
-          LinkingCompletedRsp=0x53,
-          LinkDbRecordRsp=0x57,
-          ButtonEvent=0x54)
-
 class InsteonMessage(Translator):
   __metaclass__ = abc.ABCMeta
 
@@ -271,7 +284,7 @@ class ButtonEvent(Translator):
       self.button_action.__class__.__name__)
 
   def encode(self):
-    return ((self.button_bumber << 4) | (self.button_action.byte_code),)
+    return ((self.button_number << 4) | (self.button_action.byte_code),)
 
   @classmethod
   def interpret(cls, bytes, start_index):
@@ -426,12 +439,26 @@ def pattern(name, superclasses, token_types):
   globals()[name] = pat
 
 
+class Echoed(Pattern):
+  '''Echoed is the superclass of all Patterns that can be echoed by the Insteon modem.'''
+  __metaclass__ = abc.ABCMeta
+
+class ReadFromModem(Pattern):
+  '''ReadFromModem is the superclass for all messages that could be read from the Insteon modem.'''
+  __metaclass__ = abc.ABCMeta
+
+pattern('Echo', (ReadFromModem,), (Echoed, AckNack))
+
+
+  
+
+
 class Category(Byte): pass
 class Subcategory(Byte): pass
 class FirmwareVersion(Byte): pass
 
 pattern('GetModemInfo', (), (StartByte, GetModemInfoCmd))
-pattern('ModemInfoResponse', (), (
+pattern('ModemInfoResponse', (ReadFromModem,), (
   GetModemInfo, # echoed command
   InsteonAddress,
   Category,
@@ -496,31 +523,22 @@ class LinkDBRecordFlags(Flags):
 
 
 pattern('LinkDBRecord', (), (
-  StartByte,
-  LinkDbRecordRsp,
   LinkDBRecordFlags,
   LinkGroup,
   InsteonAddress,
   LinkData1, LinkData2, LinkData3
   ))
 
-class ReadLinkDBCommand(Pattern):
+class ReadLinkDBCommand(Echoed):
   __metaclass__ = abc.ABCMeta
 
 pattern('Get1stLinkCommand', (ReadLinkDBCommand,),
         (StartByte, Get1stLinkCmd))
 pattern('GetNextLinkCommand', (ReadLinkDBCommand,),
         (StartByte, GetNextLinkCmd))
-pattern('GetLinkResponse', (),
-        (ReadLinkDBCommand, AckNack))
 
 
-# rec = LinkDBRecord.interpret(bytearray(b'\x02\x6a\x06\x02\x57\xe2\x01\x0f\x82\x9e\x02\x09\x32'), 3)
-# LinkDBRecord.encode(rec[0])
-
-# bytecodes(OpenClosed, Closed=0x00, Open=0xff)
-
-pattern('SendAllLinkCommand', (), (
+pattern('SendAllLinkCommand', (Echoed,), (
   StartByte,
   AllLinkCmd,
   LinkGroup,
@@ -541,7 +559,7 @@ class MessageFlags(Flags):
     'response':    BitMask(1, 5),
     # When the group flag is set the message id a group message
     'group':          BitMask(1, 6),
-    # If response is set 0 for ACK, 1 for NACK,
+    # If response is set: 0 for ACK, 1 for NACK,
     # otherwise this bit is set for broadcast messages.
     # No acknowledgement is sent for broadcast messages.
     'broadcast_NACK': BitMask(1, 7)
@@ -550,7 +568,7 @@ class MessageFlags(Flags):
 
 class Command2(Byte): pass
 
-pattern('SendMessageCommand', (), (
+pattern('SendMessageCommand', (Echoed,), (
   StartByte, SendMessageCmd, InsteonAddress,
   MessageFlags, StandardDirectCommand, Command2))
 
@@ -565,7 +583,52 @@ class ToAddress(InsteonAddress):
   # byte is the group number.
   pass
 
-pattern('StandardMessageReceived', (), (
-  StartByte, OriginModem, FromAddress, ToAddress,
-  MessageFlags, StandardDirectCommand, Command2))
+
+class StatusMessage(ReadFromModem):
+  __metaclass__ = abc.ABCMeta  
+
+pattern('ExtendedMessageReceived', (StatusMessage,), (
+  StartByte, ExtendedMessageReceivedCode, 
+))
+
+pattern('X10Received', (StatusMessage,), (
+  StartByte, X10ReceivedCode, Byte, Byte
+))
+
+bytecodes('AllLinkingDirection',
+          ModemIsResponder=0x00,
+          ModemIsController=0x01,
+          LinkDeleted=0xff
+)
+
+pattern('AllLinkingCompleted', (StatusMessage,), (
+  StartByte, AllLinkingCompletedCode, AllLinkingDirection,
+  LinkGroup, InsteonAddress,
+  Category, Subcategory, FirmwareVersion
+))
+
+pattern('ButtonEventReport', (StatusMessage,), (
+  StartByte, ButtonEventReportCode, ButtonEvent
+))
+
+pattern('UserResetDetected', (StatusMessage,), (
+  StartByte, UserResetDetectedCode
+))
+
+bytecodes('AllLinkCleanupFailureReportByte2',
+          AllLinkCleanupFailureReportByte2Expected=0x02)
+
+pattern('AllLinkCleanupFailureReport', (StatusMessage,), (
+  StartByte, AllLinkCleanupFailureReportCode,
+  AllLinkCleanupFailureReportByte2,
+  LinkGroup, InsteonAddress
+  ))
+
+pattern('AllLinkRecordResponse', (StatusMessage,), (
+  StartByte, AllLinkRecordResponseCode, LinkDBRecord
+  ))
+
+pattern('AllLinkCleanupStatus', (StatusMessage,), (
+  StartByte, AllLinkCleanupStatusCode, AckNack
+  ))
 

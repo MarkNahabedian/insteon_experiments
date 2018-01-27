@@ -18,12 +18,12 @@ import abc
 from singleton import Singleton
 
 
-def interpret_all(msg):
+def interpret_all(msg, translator):
   index = 0;
   messages = []
   try:
     while index < len(msg):
-      interpreted, length = ReadFromModem.interpret(msg, index)
+      interpreted, length = translator.interpret(msg, index)
       index += length
       messages.append(interpreted)
   except NoMatch as e:

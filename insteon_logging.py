@@ -3,6 +3,7 @@
 import actions
 import logging
 import time
+from translator import interpret_all, Pattern, ReadFromModem
 from pydispatch import dispatcher
 
 
@@ -10,15 +11,30 @@ _logger = None
 
 _time_format = '%Y-%m-%d %H:%M:%S %Z'
 
+_signal_abbreviations = {
+  'MODEM_COMMAND': 'H',  # Sent from host to modem.
+  'MODEM_RESPONSE': 'm'  # Sent or relayed from modem to host.
+}
 
-def _log_modem_command(sender, signal, timestamp, bytes):
-  _logger.info("%s: %s %r" % (
-    time.strftime(_time_format, timestamp), signal, bytes))
+_signal_translators = {
+  'MODEM_COMMAND': Pattern,
+  'MODEM_RESPONSE': ReadFromModem
+}
 
 
-def _log_modem_response(sender, signal, timestamp, bytes):
-  _logger.info("%s: %s %r" % (
-    time.strftime(_time_format, timestamp), signal, bytes))
+def _log_modem_traffic(sender, signal, timestamp, bytes):
+  entry_list = ["%s: %s %r" % (
+    time.strftime(_time_format, timestamp),
+    _signal_abbreviations[signal],
+    bytes)]
+  interpreted = []
+  try:
+    interpreted, _, _ = interpret_all(bytes, _signal_translators[signal])
+  except e:
+    entry_list.append(str(e))
+  finally:
+    entry = '\n\t'.join(entry_list + [repr(i) for i in interpreted])
+  _logger.info(entry)
 
 
 # See actions.py.
@@ -31,6 +47,6 @@ def _do_onShutdown_logging():
   logging.shutdown()
 
 def _do_onStartup_DispatchRegistration():
-  dispatcher.connect(_log_modem_command, signal='MODEM_COMMAND')
-  dispatcher.connect(_log_modem_response, signal='MODEM_RESPONSE')
+  dispatcher.connect(_log_modem_traffic, signal='MODEM_COMMAND')
+  dispatcher.connect(_log_modem_traffic, signal='MODEM_RESPONSE')
 

@@ -144,12 +144,13 @@ class InsteonModem (object):
       msg.append(b)
       if b in AckNack.acceptable_bytes():
         break
-    # dispatch results are ignored.
-    dispatcher.send(signal='MODEM_RESPONSE',
-                    sender=self,
-                    timestamp=time.localtime(),
-                    bytes=msg)
     if debug: print("receiving response %s" % hexdump(msg))
+    if len(msg) > 0:
+      # dispatch results are ignored.
+      dispatcher.send(signal='MODEM_RESPONSE',
+                      sender=self,
+                      timestamp=time.localtime(),
+                      bytes=msg)
     return msg
 
   def modeminfo(self):

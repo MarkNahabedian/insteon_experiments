@@ -8,7 +8,6 @@
 #                       the Insteon modem.
 
 
-import abc
 import actions
 from pydispatch import dispatcher
 import serial

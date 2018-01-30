@@ -33,6 +33,7 @@ def run(actionname):
       continue
     actions = _find_actions_for_module(m, actionname)
     for a in actions:
+      # print('Running action %r %r' % (m, a))
       a()
 
 

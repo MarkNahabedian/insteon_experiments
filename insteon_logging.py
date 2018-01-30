@@ -2,7 +2,7 @@
 
 import actions
 import logging
-import time
+import datetime
 from translator import interpret_all, Pattern, ReadFromModem
 from pydispatch import dispatcher
 
@@ -24,7 +24,7 @@ _signal_translators = {
 
 def _log_modem_traffic(sender, signal, timestamp, bytes):
   entry_list = ["%s: %s %r" % (
-    time.strftime(_time_format, timestamp),
+    timestamp.strftime(_time_format),
     _signal_abbreviations[signal],
     bytes)]
   interpreted = []

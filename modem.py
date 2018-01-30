@@ -10,6 +10,7 @@
 
 import actions
 from pydispatch import dispatcher
+import datetime
 import serial
 import time
 from translator import *
@@ -124,12 +125,15 @@ class InsteonModem (object):
     self.devices = {}
     pass
 
+  def __repr__(self):
+    return 'InsteonModem(%r)' % (self.port_path,)
+
   def sendCommand(self, command):
     assert isinstance(command, bytearray)
     # dispatch results are ignored.
     dispatcher.send(signal='MODEM_COMMAND',
                     sender=self,
-                    timestamp=time.localtime(),
+                    timestamp=datetime.datetime.now(),
                     bytes=command)
     if debug: print("sending command    %s" % hexdump(command))
     self.serial.write(command)
@@ -148,7 +152,7 @@ class InsteonModem (object):
       # dispatch results are ignored.
       dispatcher.send(signal='MODEM_RESPONSE',
                       sender=self,
-                      timestamp=time.localtime(),
+                      timestamp=datetime.datetime.now(),
                       bytes=msg)
     return msg
 
@@ -221,19 +225,3 @@ class InsteonModem (object):
     response = self.readResponse()
 
 
-
-actions.run('onStartup')
-
-try:
-  debug = False
-  im = InsteonModem("/dev/ttyUSB0")
-  im.load_devices()
-  InsteonDevice.list_devices()
-finally:
-  debug = True
-
-InsteonDevice.lookup(InsteonAddress(0x49, 0x93, 0xbf)).ping(im)  # modem
-InsteonDevice.lookup(InsteonAddress(0x0f, 0x83, 0x8f)).ping(im)
-InsteonDevice.lookup(InsteonAddress(0x0f, 0x82, 0x9e)).ping(im)
-
-# actions.run('onShutdown')

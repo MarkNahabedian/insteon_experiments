@@ -439,7 +439,11 @@ def pattern(name, superclasses, token_types):
   globals()[name] = pat
 
 
-class Echoed(Pattern):
+class Command(Pattern):
+  '''Command is the superclass of all Patterns that are commands which can be sent to the modem.'''
+  __metaclass__ = abc.ABCMeta
+
+class Echoed(Command):
   '''Echoed is the superclass of all Patterns that can be echoed by the Insteon modem.'''
   __metaclass__ = abc.ABCMeta
 
@@ -450,14 +454,11 @@ class ReadFromModem(Pattern):
 pattern('Echo', (ReadFromModem,), (Echoed, AckNack))
 
 
-  
-
-
 class Category(Byte): pass
 class Subcategory(Byte): pass
 class FirmwareVersion(Byte): pass
 
-pattern('GetModemInfo', (), (StartByte, GetModemInfoCmd))
+pattern('GetModemInfo', (Command,), (StartByte, GetModemInfoCmd))
 pattern('ModemInfoResponse', (ReadFromModem,), (
   GetModemInfo, # echoed command
   InsteonAddress,

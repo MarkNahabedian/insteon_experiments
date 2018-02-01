@@ -8,6 +8,12 @@ import insteon_logging
 from pydispatch import dispatcher
 from singleton import Singleton
 from Queue import PriorityQueue, Empty
+from tzlocal import get_localzone
+
+
+def now():
+  '''Returns the current time as a datetime.datetime, with local timezone.'''
+  return datetime.datetime.now(get_localzone())
 
 
 def timedelta_to_seconds(td):
@@ -32,7 +38,7 @@ class Scheduler(Singleton):
     self.schedule_queue.put((when, action))
     dispatcher.send(signal='EVENT_SCHEDULED',
                     sender=self,
-                    timestamp=datetime.datetime.now(),
+                    timestamp=now(),
     	            when=when,
                     action=action)
     # wake up the consumer thread.
@@ -50,29 +56,29 @@ class Scheduler(Singleton):
       except Empty:
         self.event.wait(timedelta_to_seconds(self.__class__.empty_queue_wait_time))
         continue
-      if e[0] <= datetime.datetime.now():
+      if e[0] <= now():
         success = False
-        now = datetime.datetime.now()
+        now_ = now()
         try:
           e[1]()
           success = True
         except e:
           dispatcher.send(signal='SCHEDULED_ACTION_FAILED',
                           sender=self,
-                          timestamp=now,
+                          timestamp=now_,
   	                    when=e[0],
                           action=e[1])
         if success:
           dispatcher.send(signal='SCHEDULED_ACTION_DONE',
                           sender=self,
-                          timestamp=now,
+                          timestamp=now_,
   	                  when=e[0],
                           action=e[1])
         self.schedule_queue.task_done()
       else:
         # Not ripe yet, put it back.
         self.schedule_queue.put(e)
-        self.event.wait(timedelta_to_seconds(e[0] - datetime.datetime.now()))
+        self.event.wait(timedelta_to_seconds(e[0] - now()))
         
 
 class DailyAt(object):
@@ -89,10 +95,11 @@ class DailyAt(object):
 
   def __call__(self):
     '''Returns the next time that this should occur.'''
-    now = datetime.datetime.now()
-    at = datetime.datetime(now.year, now.month, now.day,
-                           self.hour, self.minute)
-    if at > now:
+    now_ = now()
+    at = datetime.datetime(now_.year, now_.month, now_.day,
+                           self.hour, self.minute,
+                           now_.second, 0, now_.tzinfo)
+    if at > now_:
       return at
     return at + self.__class__.delta
 
@@ -132,7 +139,7 @@ class Event(object):
   def doAction(self):
     dispatcher.send(signal='EVENT_ACTION',
                     sender=self,
-                    timestamp=datetime.datetime.now())
+                    timestamp=now())
     self.action_function()
     self.schedule()
 

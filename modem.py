@@ -11,6 +11,7 @@
 import actions
 from pydispatch import dispatcher
 import datetime
+from schedule import now
 import serial
 import time
 from translator import *
@@ -133,7 +134,7 @@ class InsteonModem (object):
     # dispatch results are ignored.
     dispatcher.send(signal='MODEM_COMMAND',
                     sender=self,
-                    timestamp=datetime.datetime.now(),
+                    timestamp=now(),
                     bytes=command)
     if debug: print("sending command    %s" % hexdump(command))
     self.serial.write(command)
@@ -152,7 +153,7 @@ class InsteonModem (object):
       # dispatch results are ignored.
       dispatcher.send(signal='MODEM_RESPONSE',
                       sender=self,
-                      timestamp=datetime.datetime.now(),
+                      timestamp=now(),
                       bytes=msg)
     return msg
 

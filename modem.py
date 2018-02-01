@@ -1,4 +1,4 @@
-# Simple testing of the insteon modem.
+# Software for communicating with the SmartHome PowerLinc serial modem.
 
 # This module sends pydispatch signals with the following names:
 #
@@ -146,8 +146,6 @@ class InsteonModem (object):
       if not b:
         break
       msg.append(b)
-      if b in AckNack.acceptable_bytes():
-        break
     if debug: print("receiving response %s" % hexdump(msg))
     if len(msg) > 0:
       # dispatch results are ignored.

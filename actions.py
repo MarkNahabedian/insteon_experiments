@@ -12,6 +12,8 @@ ACTION_NAME_PATTERN = re.compile('^_do_(?P<actionname>[0-9A-Za-z]+)(_(?P<extensi
 
 
 def _find_actions_for_module(m, actionname):
+  '''Returns a list of all of the actions for actionname in the specified
+     module in the order they are to be run.'''
   found = []
   for key, val in m.__dict__.items():
     m = ACTION_NAME_PATTERN.match(key)
@@ -27,7 +29,7 @@ def _find_actions_for_module(m, actionname):
 
 
 def run(actionname):
-  '''run runs all of the actions for actionname.'''
+  '''run runs all of the actions for actionname, across all imported modules.'''
   for m in sys.modules.values():
     if not m:    # Could be None.
       continue
@@ -39,7 +41,8 @@ def run(actionname):
 
 def list_action_names():
   '''list_action_names returns a dict associating action names with
-  modules that implement behavior for that action.'''
+  modules that implement behavior for that action.
+  It's used to see all actions that are defined.'''
   result = {}
   for module in sys.modules.values():
     if not module:    # Could be None.

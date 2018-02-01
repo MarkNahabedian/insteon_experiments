@@ -1,5 +1,8 @@
-# Implementation of the singleton pattern .  Taken from
+# Implementation of the singleton pattern.  Taken from
 # https://www.python.org/download/releases/2.2/descrintro/.
+#
+# Recomendation:  Add a guard to any __init__ method to return
+# immediately if the singleton instance has already been initialized.
 
 class Singleton(object):
   def __new__(cls, *args, **kwds):

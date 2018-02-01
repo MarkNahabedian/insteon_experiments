@@ -9,7 +9,7 @@ SmartHome PowerLinc serial modem (model #2413S) and a RaspberryPi.
 This project is the python code I'm using to communicate with the
 modem and control things.
 
-<h1>Generally USeful</h1>
+<h1>Generally Useful</h1>
 
 singleton.py is a smple implementation of the singleton design pattern
 copied from https://www.python.org/download/releases/2.2/descrintro/.

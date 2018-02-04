@@ -88,7 +88,11 @@ class InsteonDevice(Device):
     response_index = 0
     assert isinstance(modem, InsteonModem)
     assert isinstance(cmd, StandardDirectCommand)
-    command = SendMessageCommand(self.address, MessageFlags(extended=False), IdRequestCmd(), Command2(0x01))
+    command = SendMessageCommand(self.address,
+                                 MessageFlags(extended=False,
+                                              max_hops=3,
+                                              hops_remaining=3),
+                                 IdRequestCmd(), Command2(0x01))
     modem.sendCommand(bytearray(command.encode()))
     response = modem.readResponse()
     echoed, length = ReadFromModem.interpret(response, response_index)

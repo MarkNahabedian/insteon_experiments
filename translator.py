@@ -209,7 +209,7 @@ bytecodes('AckNack',
           Nack=0x15)
 
 bytecodes('MessageOrigin',
-          OriginModemCode=0x50,
+          StandardMessageReceivedCode=0x50,
           ExtendedMessageReceivedCode=0x51,
           X10ReceivedCode=0x52,
           AllLinkingCompletedCode=0x53,
@@ -509,6 +509,21 @@ class LinkData1 (Byte): pass
 class LinkData2 (Byte): pass
 class LinkData3 (Byte): pass
 
+class UserData1 (Byte): pass
+class UserData2 (Byte): pass
+class UserData3 (Byte): pass
+class UserData4 (Byte): pass
+class UserData5 (Byte): pass
+class UserData6 (Byte): pass
+class UserData7 (Byte): pass
+class UserData8 (Byte): pass
+class UserData9 (Byte): pass
+class UserData10 (Byte): pass
+class UserData11 (Byte): pass
+class UserData12 (Byte): pass
+class UserData13 (Byte): pass
+class UserData14 (Byte): pass
+
 class LinkDBRecordFlags(Flags):
   FlagBits = {
     'in_use': BitMask(1, 7),  # 0 means unused (empty) record
@@ -588,8 +603,21 @@ class ToAddress(InsteonAddress):
 class StatusMessage(ReadFromModem):
   __metaclass__ = abc.ABCMeta  
 
+pattern('StandardMessageReceived', (StatusMessage,), (
+  StartByte, StandardMessageReceivedCode, FromAddress, ToAddress,
+  MessageFlags,
+  StandardDirectCommand,
+  Byte))  # command 2
+
 pattern('ExtendedMessageReceived', (StatusMessage,), (
-  StartByte, ExtendedMessageReceivedCode, 
+  StartByte, ExtendedMessageReceivedCode,
+  FromAddress, ToAddress,
+  MessageFlags,
+  StandardDirectCommand,
+  Byte,  # command 2
+  UserData1, UserData2, UserData3, UserData4, UserData5,
+  UserData6, UserData7, UserData8, UserData9, UserData10,
+  UserData11, UserData12, UserData13, UserData14
 ))
 
 pattern('X10Received', (StatusMessage,), (

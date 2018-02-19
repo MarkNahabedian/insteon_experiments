@@ -14,6 +14,7 @@ import datetime
 from schedule import now
 import serial
 import time
+import translator
 from translator import *
 import insteon_logging
 
@@ -228,3 +229,19 @@ class InsteonModem (object):
     response = self.readResponse()
 
 
+class InsteonCommandAction(object):
+  '''InsteonCommandAction is a callable, which, when called, sends the
+     specified command to the specified InsteonModem.  It can be used
+     as the action_function of an Event.'''
+  def __init__(self, modem_, command):
+    assert isinstance(modem_, InsteonModem)
+    assert isinstance(command, translator.Command), repr(command)
+    self.modem = modem_
+    self.command = command
+
+  def __call__(self):
+    self.modem.sendCommand(bytearray(self.command.encode()))
+    self.modem.readResponse()
+
+  def __repr__(self):
+    return 'InsteonCommandAction(%r, %r)' % (self.modem, self.command)

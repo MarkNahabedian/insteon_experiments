@@ -1,7 +1,7 @@
 # Scheduling events for home automation.
 
 import datetime
-import modem
+import numbers
 import threading
 import translator
 import insteon_logging
@@ -61,6 +61,7 @@ class Scheduler(Singleton):
         now_ = now()
         try:
           e[1]()
+          e[1].schedule(previous=e[0])
           success = True
         except e:
           dispatcher.send(signal='SCHEDULED_ACTION_FAILED',
@@ -81,9 +82,10 @@ class Scheduler(Singleton):
         self.event.wait(timedelta_to_seconds(e[0] - now()))
         
 
+# Event next_time_function
 class DailyAt(object):
   '''DailyAt is a function that returns the next datetime (after now)
-     having the specified hour anmd minute.'''
+     having the specified hour and minute.'''
   delta = datetime.timedelta(days=1)
 
   def __init__(self, hour, minute):
@@ -93,46 +95,72 @@ class DailyAt(object):
   def __repr__(self):
     return 'DailyAt(%r, %r)' % (self.hour, self.minute)
 
-  def __call__(self):
+  def __call__(self, now=now(), previous=None):
     '''Returns the next time that this should occur.'''
-    now_ = now()
-    at = datetime.datetime(now_.year, now_.month, now_.day,
+    if previous:
+      assert previous <= now
+    at = datetime.datetime(now.year, now.month, now.day,
                            self.hour, self.minute,
-                           now_.second, 0, now_.tzinfo)
-    if at > now_:
+                           now.second, 0, now.tzinfo)
+    if at > now:
       return at
     return at + self.__class__.delta
 
 
-class InsteonCommandAction(object):
-  '''InsteonCommandAction is a callable, which, when called, sends the
-     specified command to the specified InsteonModem.  It can be used
-     as the action_function of an Event.'''
-  def __init__(self, modem_, command):
-    assert isinstance(modem_, modem.InsteonModem)
-    assert isinstance(command, translator.Command), repr(command)
-    self.modem = modem_
-    self.command = command
+# Event next_time_function
+class TimeOffset(object):
+  '''TimeOffset is a function that adds an offset (in pinutes) to
+     the result of another scheduling function.  It can be used to add
+     an offset to another computed time like sunrise or sunset.
+     minutes can either be a number of minutes or a function returning
+     a number of minutes.  That function will be called once each time
+     the related event is scheduled.'''
 
-  def __call__(self):
-    self.modem.sendCommand(bytearray(self.command.encode()))
-    self.modem.readResponse()
+  def __init__(self, minutes, wrapped):
+    self.offset = minutes
+    self.wrapped = wrapped
 
   def __repr__(self):
-    return 'InsteonCommandAction(%r, %r)' % (self.modem, self.command)
+    return 'TimeOffset(%r, %r' % (self.offset, self.wrapped)
+
+  def __call__(self, now=now(), previous=None):
+    if isinstance(self.offset, numbers.Number):
+      offset = self.offset
+    else:
+      offset = self.offset()
+    delta = datetime.timedelta(minutes=offset)
+    next = self.wrapped(now=now-delta, previous=previous)
+    return next + delta
 
 
 class Event(object):
   '''Event is an action that can be scheduled.'''
   
   def __init__(self, action_function, next_time_function):
+    """next_time_function is called with two keyword arguments:
+         now is the current time as a datetime,
+         previous is ether None or the previous datetime this
+             event was scheduled for.
+       action_function is a function to be called (with no
+         arguments) when it's time for the event to occur.
+    """
     self.action_function = action_function
     self.next_time_function = next_time_function
 
-  def schedule(self):
-    next = self.next_time_function()
+  def schedule(self, previous=None):
+    # It is expected that the next_time_function will not return a time
+    # in the past.
+    now_ = now()
+    next = self.next_time_function(now=now_, previous=previous)
     if next:
-      Scheduler().schedule(next, self)
+      if next < now_:
+        dispatcher.send(signal='SCHEDULED_NEXT_BEFORE_NOW',
+                        # action would be the same as sender in this case.
+                        sender=self,
+                        timestamp=now_,
+	                when=next)
+      else:
+        Scheduler().schedule(next, self)
 
   def __call__(self):
     self.doAction()
@@ -142,7 +170,6 @@ class Event(object):
                     sender=self,
                     timestamp=now())
     self.action_function()
-    self.schedule()
 
   def __repr__(self):
     return('Event(%r, %r)' % (self.action_function, self.next_time_function))
@@ -167,4 +194,5 @@ def _do_onStartup_DispatchRegistration():
   dispatcher.connect(_log_scheduler_message, signal='EVENT_SCHEDULED')
   dispatcher.connect(_log_scheduler_message, signal='SCHEDULED_ACTION_DONE')
   dispatcher.connect(_log_scheduler_error, signal='SCHEDULED_ACTION_FAILED')
+  dispatcher.connect(_log_scheduler_error, signal='SCHEDULED_NEXT_BEFORE_NOW')
 

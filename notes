@@ -53,3 +53,54 @@ All-link database management
 0x6A "get next all-link record"
 
 NAK indicates no more entries
+
+
+
+
+
+
+
+
+
+
+Event
+
+Solar
+
+import threading
+
+import multiprocessing
+
+import logging
+
+logger.getLogger('insteon.modem.traffic.sent')
+logger.getLogger('insteon.modem.traffic.received')
+Entries to these lokggers should be done as specific repr()s so that
+they can be read and possibly replayed.
+
+logging.info
+
+logging.basicConfig must be called when application first starts.
+logging.basicConfig(filename='example.log',level=logging.DEBUG)
+
+logging.shutdown() should be called when the application is quitting.
+
+Logging based on module name:
+logger = logging.getLogger(__name__)
+
+
+Initialization lists:
+onStartup
+onShutdown
+
+
+TODO:
+time -> datetime
+
+
+im.sendCommand(bytearray(SendAllLinkCommand(LinkGroup(1), OnCmd(), Byte(0)).encode()))
+
+
+TODO:
+thread that logs responses from modem.
+

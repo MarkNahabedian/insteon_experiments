@@ -5,7 +5,7 @@
 
 import datetime
 import math
-from schedule import now
+import schedule
 
 
 def day_of_year(t):
@@ -87,6 +87,7 @@ class Solar(object):
     return self.solar_noon(t) + self.solar_noon_offset(t)
 
 
+# Event next_time_function
 class SolarEvent(object):
   '''SolarEvent allows Events to be scheduled for sunrise or sunset.'''
   def __init__(self, s, solar_event):
@@ -103,11 +104,10 @@ class SolarEvent(object):
   def __repr__(self):
     return 'SolarEvent(%r, %r)' % (self.solar, self.solar_event)
 
-  def __call__(self):
+  def __call__(self, now=schedule.now(), previous=None):
     '''Returns the next time that this should occur.'''
-    now_ = now()
-    at = self.calc(now_)
-    if at > now_:
+    at = self.calc(now)
+    if at > now:
       return at
-    return self.calc(now_ + datetime.timedelta(days=1))
+    return self.calc(now + datetime.timedelta(days=1))
 

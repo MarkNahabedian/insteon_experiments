@@ -2,13 +2,18 @@
 
 import datetime
 import numbers
+import sys
 import threading
 import translator
 import insteon_logging
 from pydispatch import dispatcher
 from singleton import Singleton
-from Queue import PriorityQueue, Empty
 from tzlocal import get_localzone
+
+if sys.version_info < (3,):
+  from Queue import PriorityQueue, Empty
+else:
+  from queue import PriorityQueue, Empty
 
 
 def now():

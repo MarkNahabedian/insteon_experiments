@@ -77,6 +77,7 @@ class InsteonDevice(Device):
     if self.__class__.lookup(insteonAddress):
       raise DeviceExists(id)
     self.address = insteonAddress
+    self.location = ''
     self.category = None
     self.subcategory = None
     self.firmware_version = None
@@ -178,7 +179,7 @@ class InsteonModem (object):
       b = self.serial.read(1)
       if not b:
         break
-      msg.append(b)
+      msg.append(ord(b))
     if debug: print("receiving response %s" % hexdump(msg))
     if len(msg) > 0:
       # dispatch results are ignored.

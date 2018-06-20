@@ -117,6 +117,34 @@ class InsteonDevice(Device):
     return self._simple_command(modem, OffCmd())
 
 
+class InsteonLinkGroup(object):
+  groups = {}
+
+  @classmethod
+  def lookup(cls, link_group):
+    assert isinstance(link_group, translator.LinkGroup)
+    if link_group in cls.groups:
+      return cls.groups[link_group]
+    return None
+
+  def __init__(self, link_group, devices=[]):
+    assert isinstance(link_group, translator.LinkGroup)
+    if self.__class__.lookup(link_group):
+      raise GroupExists(link_group)
+    self.link_group = link_group
+    self.devices = devices
+    self.__class__.groups[self.link_group] = self
+
+  def add_device(self, device):
+    assert isinstance(device, InsteonDevice)
+    if device in self.devices:
+      return
+    self.devices.append(device)
+
+  def __repr__(self):
+    return '%s(%r, %r)' % (self.__class__.__name__, self.link_group, self.devices)
+
+
 class InsteonModem (object):
   '''
   InsteonModem mediates communication with an Insteon serial modem.
@@ -207,10 +235,15 @@ class InsteonModem (object):
       record = interpreted.LinkDBRecord
       flags = record.LinkDBRecordFlags
       group = record.LinkGroup
+      group_obj = InsteonLinkGroup.lookup(group)
+      if not group_obj:
+        group_obj = InsteonLinkGroup(group)
       address = record.InsteonAddress
+      # Add the device to our internal database if it's not already there
       device = InsteonDevice.lookup(address)
       if not device:
         device = InsteonDevice(address)
+      group_obj.add_device(device)
       if debug: print(repr(device))
       self.sendCommand(bytearray(GetNextLinkCommand().encode()))
 

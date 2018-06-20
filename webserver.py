@@ -101,7 +101,7 @@ LINK_GROUP_ROW_TEMPLATE = '''
   <td margin="4" valign="center" rowspan="{GROUP_DEVICE_COUNT}">
     <a href="/group/on?link_group={GROUP_NUMBER}">On</href>
   </td>
-  <td margin="4" valign="center" rowspan="{GROUP_DEVICE_COUNT}">>
+  <td margin="4" valign="center" rowspan="{GROUP_DEVICE_COUNT}">
     <a valign="center" href="/group/off?link_group={GROUP_NUMBER}">Off</href>
   </td>
 </tr>

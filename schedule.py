@@ -104,8 +104,8 @@ class Every(object):
   def __call__(self, now=now(), previous=None):
     '''Returns the next time that this should occur.'''
     if previous:
-      return now
-    return previous + interval
+      return previous + self.interval
+    return now
 
 
 # Event next_time_function

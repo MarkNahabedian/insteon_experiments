@@ -217,8 +217,8 @@ def _log_scheduler_error(**args):
 
                                
 def _do_onStartup_DispatchRegistration():
-  dispatcher.connect(_log_scheduler_message, signal='EVENT_SCHEDULED')
-  dispatcher.connect(_log_scheduler_message, signal='SCHEDULED_ACTION_DONE')
+  # dispatcher.connect(_log_scheduler_message, signal='EVENT_SCHEDULED')
+  # dispatcher.connect(_log_scheduler_message, signal='SCHEDULED_ACTION_DONE')
   dispatcher.connect(_log_scheduler_error, signal='SCHEDULED_ACTION_FAILED')
   dispatcher.connect(_log_scheduler_error, signal='SCHEDULED_NEXT_BEFORE_NOW')
 

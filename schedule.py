@@ -2,13 +2,18 @@
 
 import datetime
 import numbers
+import sys
 import threading
 import translator
 import insteon_logging
 from pydispatch import dispatcher
 from singleton import Singleton
-from Queue import PriorityQueue, Empty
 from tzlocal import get_localzone
+
+if sys.version_info < (3,):
+  from Queue import PriorityQueue, Empty
+else:
+  from queue import PriorityQueue, Empty
 
 
 def now():
@@ -35,6 +40,7 @@ class Scheduler(Singleton):
     self.action_thread.start()
 
   def schedule(self, when, action):
+    '''schedule causes action to be performed according to the specified when.'''
     self.schedule_queue.put((when, action))
     dispatcher.send(signal='EVENT_SCHEDULED',
                     sender=self,
@@ -52,35 +58,55 @@ class Scheduler(Singleton):
     self.event.clear()
     while True:
       try:
-        e = self.schedule_queue.get_nowait()
+        event = self.schedule_queue.get_nowait()
       except Empty:
         self.event.wait(timedelta_to_seconds(self.__class__.empty_queue_wait_time))
         continue
-      if e[0] <= now():
+      if event[0] <= now():
         success = False
         now_ = now()
         try:
-          e[1]()
-          e[1].schedule(previous=e[0])
+          event[1]()
+          event[1].schedule(previous=event[0])
           success = True
-        except e:
+        except Exception as e:
+          # TODO Include the error in the log.
           dispatcher.send(signal='SCHEDULED_ACTION_FAILED',
                           sender=self,
                           timestamp=now_,
-  	                    when=e[0],
-                          action=e[1])
+  	                    when=event[0],
+                          action=event[1])
         if success:
           dispatcher.send(signal='SCHEDULED_ACTION_DONE',
                           sender=self,
                           timestamp=now_,
-  	                  when=e[0],
-                          action=e[1])
+  	                  when=event[0],
+                          action=event[1])
         self.schedule_queue.task_done()
       else:
         # Not ripe yet, put it back.
-        self.schedule_queue.put(e)
-        self.event.wait(timedelta_to_seconds(e[0] - now()))
+        self.schedule_queue.put(event)
+        self.event.wait(timedelta_to_seconds(event[0] - now()))
         
+
+# Event next_time_function
+class Every(object):
+  '''Every provides an Event next_time_function that schedules a periodic
+      event with a fixed timedelta in between Events.'''
+  def __init__(self, interval):
+    if not isinstance(interval, datetime.timedelta):
+      raise Exception('%r is not a timedelta.' % interval)
+    self.interval = interval
+
+  def __repr__(self):
+    return 'Every(%r)' % self.interval
+
+  def __call__(self, now=now(), previous=None):
+    '''Returns the next time that this should occur.'''
+    if previous:
+      return previous + self.interval
+    return now
+
 
 # Event next_time_function
 class DailyAt(object):
@@ -191,8 +217,8 @@ def _log_scheduler_error(**args):
 
                                
 def _do_onStartup_DispatchRegistration():
-  dispatcher.connect(_log_scheduler_message, signal='EVENT_SCHEDULED')
-  dispatcher.connect(_log_scheduler_message, signal='SCHEDULED_ACTION_DONE')
+  # dispatcher.connect(_log_scheduler_message, signal='EVENT_SCHEDULED')
+  # dispatcher.connect(_log_scheduler_message, signal='SCHEDULED_ACTION_DONE')
   dispatcher.connect(_log_scheduler_error, signal='SCHEDULED_ACTION_FAILED')
   dispatcher.connect(_log_scheduler_error, signal='SCHEDULED_NEXT_BEFORE_NOW')
 

@@ -3,13 +3,25 @@
 import actions
 import logging
 import datetime
+import schedule
 from translator import interpret_all, Pattern, ReadFromModem
 from pydispatch import dispatcher
 
 
+LOG_FILE = 'modem.log'
+
 _logger = None
 
 _time_format = '%Y-%m-%d %H:%M:%S %Z'
+
+
+def info(message):
+  '''Add message to the log.'''
+  if _logger:
+    _logger.info('%s: %s' % (
+      schedule.now().strftime(_time_format),
+      message))
+
 
 _signal_abbreviations = {
   'MODEM_COMMAND': 'H',  # Sent from host to modem.
@@ -39,9 +51,11 @@ def _log_modem_traffic(sender, signal, timestamp, bytes):
 
 # See actions.py.
 def _do_onStartup_logging():
-  logging.basicConfig(filename='modem.log', level=logging.INFO)
+  logging.basicConfig(filename=LOG_FILE, level=logging.INFO)
   global _logger
   _logger = logging.getLogger(__name__)
+  info('LOGGING STARTED')
+  actions.run('onLoggingStarted')
 
 def _do_onShutdown_logging():
   logging.shutdown()

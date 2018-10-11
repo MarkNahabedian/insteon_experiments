@@ -504,7 +504,15 @@ class Flags (Translator):
     return i, 1
 
   
-class LinkGroup(Byte): pass
+class LinkGroup(Byte):
+  def __eq__(self, other):
+    return self.byte == other.byte
+  def __ne__(self, other):
+    return not (self == other)
+  def __hash__(self):
+    return self.byte
+
+
 class LinkData1 (Byte): pass
 class LinkData2 (Byte): pass
 class LinkData3 (Byte): pass

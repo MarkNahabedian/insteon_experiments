@@ -8,7 +8,7 @@ import re
 import sys
 
 
-ACTION_NAME_PATTERN = re.compile('^_do_(?P<actionname>[0-9A-Za-z]+)(_(?P<extension>[0-9A-Za-z]+))?$')
+ACTION_NAME_PATTERN = re.compile('^_do_(?P<actionname>[0-9A-Za-z]+)(_(?P<extension>[0-9A-Za-z_]+))?$')
 
 
 def _find_actions_for_module(m, actionname):
@@ -35,7 +35,7 @@ def run(actionname):
       continue
     actions = _find_actions_for_module(m, actionname)
     for a in actions:
-      # print('Running action %r %r' % (m, a))
+      print('Running action %s %r %r' % (actionname, m, a))
       a()
 
 

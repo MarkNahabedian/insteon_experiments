@@ -11,10 +11,10 @@ modem and control things.
 
 <h1>Generally Useful</h1>
 
-singleton.py is a smple implementation of the singleton design pattern
+<b>singleton.py</b> is a simple implementation of the singleton design pattern
 copied from https://www.python.org/download/releases/2.2/descrintro/.
 
-actions.py provides a cross-module initialization mechanism.  The
+<b>actions.py</b> provides a cross-module initialization mechanism.  The
 programmer identifies points in the lifecycle of the program that a
 module might want to perform some action at.  Examples might include
 at program startup or shutdown.  A module can define functions with
@@ -39,7 +39,7 @@ to execute all "onStartup" actions defined in any imported module.
 
 <h1>Modeling Insteon Messages</h1>
 
-translator.py implements a (incomplete) model of the messages sent to
+<b>translator.py</b> implements a (incomplete) model of the messages sent to
 and from the Insteon modem.  It includes methods for translatiing
 between a human and program readable representation of a message to
 the list of bytes to communicate with the modem.
@@ -63,7 +63,7 @@ cmd.encode()
 
 <h1>Communicating with the Modem</h1>
 
-modem.py implements communication with the modem.
+<b>modem.py</b> implements communication with the modem.
 
 <pre>
 import modem
@@ -86,7 +86,7 @@ an Ack.
 
 <h1>Scheduling Events</h1>
 
-schedule.py implements scheduling of modem commands and other events.
+<b>schedule.py</b> implements scheduling of modem commands and other events.
 
 For example, to turn on all Link group 1 devices at 7:00pm every day:
 
@@ -95,7 +95,7 @@ Event(InsteonCommandAction(im, SendAllLinkCommand(LinkGroup(1), OnCmd(), Byte(0)
       DailyAt(19, 0)).schedule()
 </pre>
 
-solar.py implements a not very accurate model for sunrise and sunset.
+<b>solar.py</b> implements a not very accurate model for sunrise and sunset.
 It can also be used to schedule events:
 
 <pre>

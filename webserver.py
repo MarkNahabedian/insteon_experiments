@@ -11,6 +11,8 @@ from translator import *
 from urllib.parse import urlparse, parse_qs
 
 
+logging.getLogger(__name__).propagate = True
+
 def logger():
   return logging.getLogger(__name__)
 

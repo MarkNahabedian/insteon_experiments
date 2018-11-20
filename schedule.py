@@ -1,14 +1,17 @@
 # Scheduling events for home automation.
 
 import datetime
+import logging
 import numbers
 import sys
 import threading
+import config
 import translator
-import insteon_logging
 from pydispatch import dispatcher
 from singleton import Singleton
 from tzlocal import get_localzone
+
+logging.getLogger(__name__).propagate = True
 
 if sys.version_info < (3,):
   from Queue import PriorityQueue, Empty
@@ -203,17 +206,17 @@ class Event(object):
 
 def _format_scheduler_message(signal, sender, timestamp, when, action):
   return '%s: %s: %r @ %s' % (
-    timestamp.strftime(insteon_logging._time_format),
+    timestamp.strftime(config.TIME_FORMAT),
     signal, action,
-    when.strftime(insteon_logging._time_format))
+    when.strftime(config.TIME_FORMAT))
 
 
 def _log_scheduler_message(**args):
-  insteon_logging._logger.info(_format_scheduler_message(**args))
+  logging.getLogger(__name__).info(_format_scheduler_message(**args))
 
 
 def _log_scheduler_error(**args):
-  insteon_logging._logger.info(_format_scheduler_message(**args))
+  logging.getLogger(__name__).info(_format_scheduler_message(**args))
 
                                
 def _do_onStartup_DispatchRegistration():

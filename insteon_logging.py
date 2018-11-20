@@ -4,7 +4,7 @@ import actions
 import logging
 import datetime
 import config
-import schedule
+import config
 from translator import interpret_all, Pattern, ReadFromModem
 from pydispatch import dispatcher
 
@@ -13,7 +13,7 @@ logging.getLogger(__name__).propagate = True
 def info(message):
   '''Add message to the log.'''
   logging.getLogger(__name__).info('%s: %s' % (
-    schedule.now().strftime(config.TIME_FORMAT),
+    config.now().strftime(config.TIME_FORMAT),
     message))
 
 

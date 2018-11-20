@@ -19,11 +19,6 @@ else:
   from queue import PriorityQueue, Empty
 
 
-def now():
-  '''Returns the current time as a datetime.datetime, with local timezone.'''
-  return datetime.datetime.now(get_localzone())
-
-
 def timedelta_to_seconds(td):
   return td.seconds + td.days * 60 * 60 * 24 + td.microseconds/1000000
 

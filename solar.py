@@ -5,7 +5,7 @@
 
 import datetime
 import math
-import schedule
+import config
 
 
 def day_of_year(t):
@@ -104,7 +104,7 @@ class SolarEvent(object):
   def __repr__(self):
     return 'SolarEvent(%r, %r)' % (self.solar, self.solar_event)
 
-  def __call__(self, now=schedule.now(), previous=None):
+  def __call__(self, now=config.now(), previous=None):
     '''Returns the next time that this should occur.'''
     at = self.calc(now)
     if at > now:

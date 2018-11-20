@@ -7,9 +7,7 @@ import sys
 import threading
 import config
 import translator
-from pydispatch import dispatcher
 from singleton import Singleton
-from tzlocal import get_localzone
 
 logging.getLogger(__name__).propagate = True
 
@@ -40,11 +38,11 @@ class Scheduler(Singleton):
   def schedule(self, when, action):
     '''schedule causes action to be performed according to the specified when.'''
     self.schedule_queue.put((when, action))
-    dispatcher.send(signal='EVENT_SCHEDULED',
-                    sender=self,
-                    timestamp=now(),
-    	            when=when,
-                    action=action)
+    _log_scheduler_message(scheduler_operation='EVENT_SCHEDULED',
+                           sender=self,
+                           timestamp=config.now(),
+    	                   when=when,
+                           action=action)
     # wake up the consumer thread.
     self.event.set()
 
@@ -60,31 +58,31 @@ class Scheduler(Singleton):
       except Empty:
         self.event.wait(timedelta_to_seconds(self.__class__.empty_queue_wait_time))
         continue
-      if event[0] <= now():
+      if event[0] <= config.now():
         success = False
-        now_ = now()
+        now_ = config.now()
         try:
           event[1]()
           event[1].schedule(previous=event[0])
           success = True
         except Exception as e:
           # TODO Include the error in the log.
-          dispatcher.send(signal='SCHEDULED_ACTION_FAILED',
-                          sender=self,
-                          timestamp=now_,
-  	                    when=event[0],
-                          action=event[1])
+          _log_scheduler_message(scheduler_operation='SCHEDULED_ACTION_FAILED',
+                                 sender=self,
+                                 timestamp=now_,
+  	                         when=event[0],
+                                 action=event[1])
         if success:
-          dispatcher.send(signal='SCHEDULED_ACTION_DONE',
-                          sender=self,
-                          timestamp=now_,
-  	                  when=event[0],
-                          action=event[1])
+          _log_scheduler_message(scheduler_operation='SCHEDULED_ACTION_DONE',
+                                 sender=self,
+                                 timestamp=now_,
+  	                         when=event[0],
+                                 action=event[1])
         self.schedule_queue.task_done()
       else:
         # Not ripe yet, put it back.
         self.schedule_queue.put(event)
-        self.event.wait(timedelta_to_seconds(event[0] - now()))
+        self.event.wait(timedelta_to_seconds(event[0] - config.now()))
         
 
 # Event next_time_function
@@ -99,7 +97,7 @@ class Every(object):
   def __repr__(self):
     return 'Every(%r)' % self.interval
 
-  def __call__(self, now=now(), previous=None):
+  def __call__(self, now=config.now(), previous=None):
     '''Returns the next time that this should occur.'''
     if previous:
       return previous + self.interval
@@ -119,7 +117,7 @@ class DailyAt(object):
   def __repr__(self):
     return 'DailyAt(%r, %r)' % (self.hour, self.minute)
 
-  def __call__(self, now=now(), previous=None):
+  def __call__(self, now=config.now(), previous=None):
     '''Returns the next time that this should occur.'''
     if previous:
       assert previous <= now
@@ -147,7 +145,7 @@ class TimeOffset(object):
   def __repr__(self):
     return 'TimeOffset(%r, %r' % (self.offset, self.wrapped)
 
-  def __call__(self, now=now(), previous=None):
+  def __call__(self, now=config.now(), previous=None):
     if isinstance(self.offset, numbers.Number):
       offset = self.offset
     else:
@@ -174,15 +172,15 @@ class Event(object):
   def schedule(self, previous=None):
     # It is expected that the next_time_function will not return a time
     # in the past.
-    now_ = now()
+    now_ = config.now()
     next = self.next_time_function(now=now_, previous=previous)
     if next:
       if next < now_:
-        dispatcher.send(signal='SCHEDULED_NEXT_BEFORE_NOW',
-                        # action would be the same as sender in this case.
-                        sender=self,
-                        timestamp=now_,
-	                when=next)
+        _log_scheduler_message(scheduler_operation='SCHEDULED_NEXT_BEFORE_NOW',
+                               # action would be the same as sender in this case.
+                               sender=self,
+                               timestamp=now_,
+	                       when=next)
       else:
         Scheduler().schedule(next, self)
 
@@ -190,33 +188,53 @@ class Event(object):
     self.doAction()
 
   def doAction(self):
-    dispatcher.send(signal='EVENT_ACTION',
-                    sender=self,
-                    timestamp=now())
+    _log_scheduler_message(scheduler_operation='EVENT_ACTION',
+                           sender=self,
+                           timestamp=config.now())
     self.action_function()
 
   def __repr__(self):
     return('Event(%r, %r)' % (self.action_function, self.next_time_function))
 
 
-def _format_scheduler_message(signal, sender, timestamp, when, action):
-  return '%s: %s: %r @ %s' % (
-    timestamp.strftime(config.TIME_FORMAT),
-    signal, action,
-    when.strftime(config.TIME_FORMAT))
-
+SCHEDULE_OPERAATION_LOG_LEVEL = {
+  'EVENT_ACTION': logging.INFO,
+  'EVENT_SCHEDULED': logging.INFO,
+  'SCHEDULED_ACTION_DONE': logging.INFO,
+  'SCHEDULED_ACTION_FAILED': logging.ERROR,
+  'SCHEDULED_NEXT_BEFORE_NOW': logging.WARNING
+}
 
 def _log_scheduler_message(**args):
-  logging.getLogger(__name__).info(_format_scheduler_message(**args))
+  lvl = SCHEDULE_OPERAATION_LOG_LEVEL.get(args.get('scheduler_operation')) or logging.ERROR
+  when = args.get('when')
+  if when:
+    when = when.strftime(config.TIME_FORMAT)
+    d = {
+      'scheduler_operation': args.get('scheduler_operation'),
+      'action': args.get('action'),
+      'scheduled_at': when
+    }
+  logging.getLogger(__name__).log(
+    lvl,
+    '%s: %r @ %s',
+    d.get('scheduler_operation'),
+    d.get('action'),
+    d.get('scheduled_at'),
+    extra=d)
 
 
-def _log_scheduler_error(**args):
-  logging.getLogger(__name__).info(_format_scheduler_message(**args))
+class ScheduleLogFilter(logging.Filter):
+  def __init__(self, log_level=logging.DEBUG, exclude_schedule_operations=[]):
+    self.log_level = log_level
+    self.exclude_schedule_operations = exclude_schedule_operations
 
-                               
-def _do_onStartup_DispatchRegistration():
-  # dispatcher.connect(_log_scheduler_message, signal='EVENT_SCHEDULED')
-  # dispatcher.connect(_log_scheduler_message, signal='SCHEDULED_ACTION_DONE')
-  dispatcher.connect(_log_scheduler_error, signal='SCHEDULED_ACTION_FAILED')
-  dispatcher.connect(_log_scheduler_error, signal='SCHEDULED_NEXT_BEFORE_NOW')
+  def filter(self, log_record):
+    if log_record.module != __name__:
+      return True
+    if log_record.levelno < self.log_level:
+      return False
+    if log_record.__dict__.get('scheduler_operation') in self.exclude_schedule_operations:
+      return False
+    return True
 

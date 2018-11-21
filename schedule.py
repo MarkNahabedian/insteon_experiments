@@ -3,87 +3,52 @@
 import datetime
 import logging
 import numbers
-import sys
+import sched
 import threading
+import time
 import config
-import translator
 from singleton import Singleton
 
 logging.getLogger(__name__).propagate = True
 
-if sys.version_info < (3,):
-  from Queue import PriorityQueue, Empty
-else:
-  from queue import PriorityQueue, Empty
+TIME_ZERO = datetime.datetime(1970,1,1, tzinfo=get_localzone())
 
+def schedTime(t=None):
+  if t == None:
+    t = config.now()
+  return (t - TIME_ZERO).total_seconds()
 
-def timedelta_to_seconds(td):
-  return td.seconds + td.days * 60 * 60 * 24 + td.microseconds/1000000
-
+def schedSleep(delay):
+  time.sleep(delay)
 
 class Scheduler(Singleton):
   empty_queue_wait_time = datetime.timedelta(minutes=5)
   
   def __init__(self):
-    if 'schedule_queue' in self.__dict__:
+    if 'scheduler' in self.__dict__:
+      # singleton instance already created.
       return
-    self.schedule_queue = PriorityQueue()
-    self.event = threading.Event()
+    self.scheduler = sched.scheduler(schedTime, schedSleep)
     self.action_thread = threading.Thread(name='Scheduler Thread',
                                           target=self)
     self.action_thread.daemon = True,
-    self.event.set()
     self.action_thread.start()
 
   def schedule(self, when, action):
     '''schedule causes action to be performed according to the specified when.'''
-    self.schedule_queue.put((when, action))
+    self.scheduler.enterabs(schedTime(when), 0, action)
     _log_scheduler_message(scheduler_operation='EVENT_SCHEDULED',
                            sender=self,
                            timestamp=config.now(),
     	                   when=when,
                            action=action)
-    # wake up the consumer thread.
-    self.event.set()
 
   def __call__(self):
-    self.consumer()
-    
-  def consumer(self):
-    # Is it time to perform the next Event?
-    self.event.clear()
-    while True:
-      try:
-        event = self.schedule_queue.get_nowait()
-      except Empty:
-        self.event.wait(timedelta_to_seconds(self.__class__.empty_queue_wait_time))
-        continue
-      if event[0] <= config.now():
-        success = False
-        now_ = config.now()
-        try:
-          event[1]()
-          event[1].schedule(previous=event[0])
-          success = True
-        except Exception as e:
-          # TODO Include the error in the log.
-          _log_scheduler_message(scheduler_operation='SCHEDULED_ACTION_FAILED',
-                                 sender=self,
-                                 timestamp=now_,
-  	                         when=event[0],
-                                 action=event[1])
-        if success:
-          _log_scheduler_message(scheduler_operation='SCHEDULED_ACTION_DONE',
-                                 sender=self,
-                                 timestamp=now_,
-  	                         when=event[0],
-                                 action=event[1])
-        self.schedule_queue.task_done()
-      else:
-        # Not ripe yet, put it back.
-        self.schedule_queue.put(event)
-        self.event.wait(timedelta_to_seconds(event[0] - config.now()))
-        
+    _log_scheduler_message(scheduler_operation='SCHEDULER_STARTED',
+                           sender=self,
+                           timestamp=config.now())
+    self.scheduler.run(True)
+
 
 # Event next_time_function
 class Every(object):
@@ -156,7 +121,7 @@ class TimeOffset(object):
 
 
 class Event(object):
-  '''Event is an action that can be scheduled.'''
+  '''Event is an action that can be scheduled and rescheduled.'''
   
   def __init__(self, action_function, next_time_function):
     """next_time_function is called with two keyword arguments:
@@ -168,6 +133,7 @@ class Event(object):
     """
     self.action_function = action_function
     self.next_time_function = next_time_function
+    self.when = None
 
   def schedule(self, previous=None):
     # It is expected that the next_time_function will not return a time
@@ -182,6 +148,7 @@ class Event(object):
                                timestamp=now_,
 	                       when=next)
       else:
+        self.when = next
         Scheduler().schedule(next, self)
 
   def __call__(self):
@@ -191,13 +158,32 @@ class Event(object):
     _log_scheduler_message(scheduler_operation='EVENT_ACTION',
                            sender=self,
                            timestamp=config.now())
-    self.action_function()
+    now_ = config.now()
+    success = False
+    try:
+      self.action_function()
+      self.schedule(previous=self.when)
+      success = True
+    except Exception as e:
+      # TODO Include the error in the log.
+      _log_scheduler_message(scheduler_operation='SCHEDULED_ACTION_FAILED',
+                             sender=self,
+                             timestamp=now_,
+  	                     when=self.when,
+                             action=self)
+    if success:
+      _log_scheduler_message(scheduler_operation='SCHEDULED_ACTION_DONE',
+                             sender=self,
+                             timestamp=now_,
+  	                     when=self.when,
+                             action=self)
 
   def __repr__(self):
     return('Event(%r, %r)' % (self.action_function, self.next_time_function))
 
 
 SCHEDULE_OPERAATION_LOG_LEVEL = {
+  'SCHEDULER_STARTED': logging.INFO,
   'EVENT_ACTION': logging.INFO,
   'EVENT_SCHEDULED': logging.INFO,
   'SCHEDULED_ACTION_DONE': logging.INFO,
@@ -210,11 +196,11 @@ def _log_scheduler_message(**args):
   when = args.get('when')
   if when:
     when = when.strftime(config.TIME_FORMAT)
-    d = {
-      'scheduler_operation': args.get('scheduler_operation'),
-      'action': args.get('action'),
-      'scheduled_at': when
-    }
+  d = {
+    'scheduler_operation': args.get('scheduler_operation'),
+    'action': args.get('action'),
+    'scheduled_at': when
+  }
   logging.getLogger(__name__).log(
     lvl,
     '%s: %r @ %s',

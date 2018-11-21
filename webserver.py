@@ -7,6 +7,8 @@ import logging
 import http.server
 import html
 import modem
+from config import TIME_FORMAT
+from schedule import Scheduler
 from translator import *
 from urllib.parse import urlparse, parse_qs
 
@@ -84,7 +86,7 @@ class MyRequestHandler(http.server.BaseHTTPRequestHandler):
     return int(g)
 
 
-LINK_GROUPS_PAGE_TEMPLATE = '''<html>
+DEFAULT_PAGE_TEMPLATE = '''<html>
   <head>
     <title>Home Control</title>
     <base href="/" target="_top" <base />
@@ -92,7 +94,11 @@ LINK_GROUPS_PAGE_TEMPLATE = '''<html>
   <body>
     <h1>Home Control</h1>
     <p>Controller local time: {TIME}</p>
+    <h2>Link Groups</h2>
     <table margin="4">{LINK_GROUP_ROWS}</table>
+    <br/><br/><br/>
+    <h2>Schedule</h2>
+    <table margin="4">{SCHEDULE_ROWS}</table>
   </body>
 </html>'''
 
@@ -109,12 +115,18 @@ LINK_GROUP_ROW_TEMPLATE = '''
 </tr>
 '''
 
+SCHEDULE_ROW_TEMPLATE = '''
+<tr>
+  <td margin="4" valign="top">{NEXT_TIME}</td>
+  <td margin="4" valign="top">{ACTION}</td>
+</tr>
+'''
 
 def link_groups_page():
   def group_device(device):
     return '{ADDRESS} {LOCATION} <br />'.format(**{
-      'ADDRESS': str(device.address),
-      'LOCATION': device.location
+      'ADDRESS': html.escape(str(device.address)),
+      'LOCATION': html.escape(device.location)
       })
   def lg_row(link_group):
     return LINK_GROUP_ROW_TEMPLATE.format(**{
@@ -122,9 +134,15 @@ def link_groups_page():
       'GROUP_NUMBER': str(link_group.link_group.byte),
       'DEVICES': '\n'.join([group_device(d) for d in link_group.devices])
       })
-  return LINK_GROUPS_PAGE_TEMPLATE.format(**{
-    'TIME': datetime.datetime.now().strftime("%Y-%m-%d %I:%M:%S %p %z"),
-    'LINK_GROUP_ROWS': '\n'.join([lg_row(g) for g in modem.InsteonLinkGroup.groups.values()])
+  def schedule_row(event):
+    return SCHEDULE_ROW_TEMPLATE.format(**{
+      'NEXT_TIME': html.escape(event.when.strftime(TIME_FORMAT)) if event.when else '',
+      'ACTION': html.escape("%r" % event.action_function)
+    })
+  return DEFAULT_PAGE_TEMPLATE.format(**{
+    'TIME': datetime.datetime.now().strftime(TIME_FORMAT),
+    'LINK_GROUP_ROWS': '\n'.join([lg_row(g) for g in modem.InsteonLinkGroup.groups.values()]),
+    'SCHEDULE_ROWS': '\n'.join([schedule_row(e) for e in Scheduler().queued_events()])
   })
 
 

@@ -50,6 +50,11 @@ class Scheduler(Singleton):
                            timestamp=config.now())
     self.scheduler.run(True)
 
+  def queued_events(self):
+    # *** We're making the assumption here that the scheduler queue
+    # *** only has Events as the actions.
+    return [ s.action for s in self.scheduler.queue]
+    
 
 # Event next_time_function
 class Every(object):

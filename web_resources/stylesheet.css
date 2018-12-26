@@ -1,0 +1,28 @@
+
+html body {
+    background-color: black;
+    color: white;
+}
+
+table.link-groups {
+}
+
+.link-groups td {
+    border-collapse: collapse;
+    border-bottom-width: 1;
+    border-bottom-color: white;
+    border-bottom-style: solid;
+    padding-right: 1em;
+}
+
+table.schedule {
+    padding: 4;
+}
+
+.schedule td {
+    border-collapse: collapse;
+    border-bottom-width: 1;
+    border-bottom-color: white;
+    border-bottom-style: solid;
+    padding-right: 1em;
+}

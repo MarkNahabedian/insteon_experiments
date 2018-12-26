@@ -2,6 +2,8 @@
 import sys
 assert sys.version_info >= (3, 2)
 
+import sys
+import os.path
 import datetime
 import logging
 import http.server
@@ -19,6 +21,11 @@ def logger():
   return logging.getLogger(__name__)
 
 
+def file_resource_path(filename):
+  base = os.path.dirname(sys.modules[__name__].__file__)
+  return os.path.join(base, 'web_resources', filename)
+
+
 class MyRequestHandler(http.server.BaseHTTPRequestHandler):
   def do_HEAD(self):
     logger().info("HEAD")
@@ -31,14 +38,18 @@ class MyRequestHandler(http.server.BaseHTTPRequestHandler):
     self.error_message_format = "eRRoR"
     logger().info("GET " + self.path)
     try:
-      if self.path.startswith("/favicon.ico"):
-        self.send_error(404, "Resource not found")
+      if self.path == '/favicon.ico':
+        self.send_error(404, 'Resource not found')
+      elif self.path == '/stylesheet.css':
+        self.send_file(file_resource_path('stylesheet.css'))
       elif self.path.startswith('/group/on'):
         self.group_on()
       elif self.path.startswith('/group/off'):
         self.group_off()
+      elif self.path == '/':
+        self.main_page()
       else:
-        self.default()
+        self.send_error(404, "Resource not found: %s" % self.path)
     except Exception as e:
       logger().info("exception " + str(e))
       # Callees are responsible for their own error responses.
@@ -51,7 +62,7 @@ class MyRequestHandler(http.server.BaseHTTPRequestHandler):
       raise Exception("No Insteon modem")
     return self.server.insteon_modem
 
-  def default(self):
+  def main_page(self):
     self.send_response(200, "Ok")
     self.send_header('Content-type','text/html')
     self.end_headers()
@@ -60,12 +71,26 @@ class MyRequestHandler(http.server.BaseHTTPRequestHandler):
                            "utf8"))
     self.wfile.flush()
 
+  def send_file(self, path):
+    try:
+      with open(path) as f:
+        contents = f.read()
+        logger().info(contents)
+        self.send_response(200, "Ok")
+        self.send_header('Content-type','text/css')
+        self.end_headers()
+        self.flush_headers()
+        self.wfile.write(bytes(contents, "utf8"))
+        self.wfile.flush()
+    except Exception as e:
+      self.send_error(404, str(e))
+        
   def group_on(self):
     im = self.check_modem()
     if not modem: return
     group = self.get_group_number()
     im.sendCommand(bytearray(SendAllLinkCommand(LinkGroup(group), OnCmd(), Byte(0)).encode()))
-    self.default()
+    self.main_page()
 
   def group_off(self):
     self.check_modem()
@@ -73,7 +98,7 @@ class MyRequestHandler(http.server.BaseHTTPRequestHandler):
     if not modem: return
     group = self.get_group_number()
     im.sendCommand(bytearray(SendAllLinkCommand(LinkGroup(group), OffCmd(), Byte(0)).encode()))
-    self.default()
+    self.main_page()
 
   def get_group_number(self):
     u = urlparse(self.path)
@@ -90,15 +115,16 @@ DEFAULT_PAGE_TEMPLATE = '''<html>
   <head>
     <title>Home Control</title>
     <base href="/" target="_top" <base />
+    <link rel="stylesheet" href="stylesheet.css" type="text/css" />
   </head>
   <body>
     <h1>Home Control</h1>
     <p>Controller local time: {TIME}</p>
     <h2>Link Groups</h2>
-    <table margin="4">{LINK_GROUP_ROWS}</table>
+    <table class="link-groups">{LINK_GROUP_ROWS}</table>
     <br/><br/><br/>
     <h2>Schedule</h2>
-    <table margin="4">{SCHEDULE_ROWS}</table>
+    <table class="schedule">{SCHEDULE_ROWS}</table>
   </body>
 </html>'''
 
@@ -117,8 +143,8 @@ LINK_GROUP_ROW_TEMPLATE = '''
 
 SCHEDULE_ROW_TEMPLATE = '''
 <tr>
-  <td margin="4" valign="top">{NEXT_TIME}</td>
-  <td margin="4" valign="top">{ACTION}</td>
+  <td valign="top">{NEXT_TIME}</td>
+  <td valign="top">{ACTION}</td>
 </tr>
 '''
 

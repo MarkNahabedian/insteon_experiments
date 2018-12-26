@@ -51,7 +51,7 @@ class MyRequestHandler(http.server.BaseHTTPRequestHandler):
       else:
         self.send_error(404, "Resource not found: %s" % self.path)
     except Exception as e:
-      logger().info("exception " + str(e))
+      logger().exception("exception " + str(e))
       # Callees are responsible for their own error responses.
       pass
 
@@ -67,7 +67,7 @@ class MyRequestHandler(http.server.BaseHTTPRequestHandler):
     self.send_header('Content-type','text/html')
     self.end_headers()
     self.flush_headers()
-    self.wfile.write(bytes(link_groups_page(),
+    self.wfile.write(bytes(main_page(),
                            "utf8"))
     self.wfile.flush()
 
@@ -75,7 +75,6 @@ class MyRequestHandler(http.server.BaseHTTPRequestHandler):
     try:
       with open(path) as f:
         contents = f.read()
-        logger().info(contents)
         self.send_response(200, "Ok")
         self.send_header('Content-type','text/css')
         self.end_headers()
@@ -122,7 +121,8 @@ DEFAULT_PAGE_TEMPLATE = '''<html>
     <p>Controller local time: {TIME}</p>
     <h2>Link Groups</h2>
     <table class="link-groups">{LINK_GROUP_ROWS}</table>
-    <br/><br/><br/>
+    <h2>Devices</h2>
+    <table class="devices">{DEVICE_ROWS}</table>
     <h2>Schedule</h2>
     <table class="schedule">{SCHEDULE_ROWS}</table>
   </body>
@@ -131,13 +131,23 @@ DEFAULT_PAGE_TEMPLATE = '''<html>
 LINK_GROUP_ROW_TEMPLATE = '''
 <tr>
   <td margin="4" valign="top" rowspan="{GROUP_DEVICE_COUNT}">group {GROUP_NUMBER}</td>
-  <td margin="4" >{DEVICES}</td>
+  <td margin="4" >{DEVICE_ROWS}</td>
   <td margin="4" valign="center" rowspan="{GROUP_DEVICE_COUNT}">
     <a href="/group/on?link_group={GROUP_NUMBER}">On</href>
   </td>
   <td margin="4" valign="center" rowspan="{GROUP_DEVICE_COUNT}">
     <a valign="center" href="/group/off?link_group={GROUP_NUMBER}">Off</href>
   </td>
+</tr>
+'''
+
+INSTEON_DEVICE_ROW_TEMPLATE = '''
+<tr>
+  <td class="address">{ADDRESS}</td>
+  <td class="caregory">{CATEGORY}</td>
+  <td class="subcategory">{SUBCATEGORY}</td>
+  <td class="firmware_version">{FIRMWARE_VERSION}</td>
+  <td class="location">{LOCATION}</td>
 </tr>
 '''
 
@@ -148,7 +158,7 @@ SCHEDULE_ROW_TEMPLATE = '''
 </tr>
 '''
 
-def link_groups_page():
+def main_page():
   def group_device(device):
     return '{ADDRESS} {LOCATION} <br />'.format(**{
       'ADDRESS': html.escape(str(device.address)),
@@ -158,7 +168,15 @@ def link_groups_page():
     return LINK_GROUP_ROW_TEMPLATE.format(**{
       'GROUP_DEVICE_COUNT': str(len(link_group.devices)),
       'GROUP_NUMBER': str(link_group.link_group.byte),
-      'DEVICES': '\n'.join([group_device(d) for d in link_group.devices])
+      'DEVICE_ROWS': '\n'.join([group_device(d) for d in link_group.devices])
+      })
+  def device_row(device):
+    return INSTEON_DEVICE_ROW_TEMPLATE.format(**{
+      'ADDRESS': device.address,
+      'CATEGORY': device.category or '',
+      'SUBCATEGORY': device.subcategory or '',
+      'FIRMWARE_VERSION': device.firmware_version or '',
+      'LOCATION': device.location or ''
       })
   def schedule_row(event):
     return SCHEDULE_ROW_TEMPLATE.format(**{
@@ -168,6 +186,7 @@ def link_groups_page():
   return DEFAULT_PAGE_TEMPLATE.format(**{
     'TIME': datetime.datetime.now().strftime(TIME_FORMAT),
     'LINK_GROUP_ROWS': '\n'.join([lg_row(g) for g in modem.InsteonLinkGroup.groups.values()]),
+    'DEVICE_ROWS': '\n'.join([device_row(d) for d in modem.InsteonDevice.devices.values()]),
     'SCHEDULE_ROWS': '\n'.join([schedule_row(e) for e in Scheduler().queued_events()])
   })
 

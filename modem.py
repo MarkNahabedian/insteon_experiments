@@ -86,7 +86,7 @@ class InsteonDevice(Device):
   def __repr__(self):
     return '%s(%r)' % (self.__class__.__name__, self.address)
 
-  def _simple_command(self, modem, cmd):
+  def _simple_command(self, modem, cmd, cmd2):
     response_index = 0
     assert isinstance(modem, InsteonModem)
     assert isinstance(cmd, StandardDirectCommand)
@@ -94,7 +94,7 @@ class InsteonDevice(Device):
                                  MessageFlags(extended=False,
                                               max_hops=3,
                                               hops_remaining=3),
-                                 IdRequestCmd(), Command2(0x01))
+                                 cmd, cmd2)
     modem.sendCommand(bytearray(command.encode()))
     response = modem.readResponse()
     echoed, length = ReadFromModem.interpret(response, response_index)
@@ -103,19 +103,19 @@ class InsteonDevice(Device):
     return echoed.AckNack is Ack(), response, response_index
 
   def ping(self, modem):
-    return self._simple_command(modem, PingCmd())
+    return self._simple_command(modem, PingCmd(), Command2(0x01))
 
   def id_request(self, modem):
-    return self._simple_command(modem, IdRequestCmd())
+    return self._simple_command(modem, IdRequestCmd(), Command2(0x01))
 
   def status(self, modem):
-    acked, response, response_index = self._simple_command(modem, StatusRequestCmd())
+    acked, response, response_index = self._simple_command(modem, StatusRequestCmd(), Command2(0x01))
 
   def on(self, modem):
-    return self._simple_command(modem, OnCmd())
+    return self._simple_command(modem, OnCmd(), Command2(0x01))
 
   def off(self, modem):
-    return self._simple_command(modem, OffCmd())
+    return self._simple_command(modem, OffCmd(), Command2(0))
 
 
 class InsteonLinkGroup(object):

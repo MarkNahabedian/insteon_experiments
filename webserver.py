@@ -4,12 +4,11 @@ assert sys.version_info >= (3, 2)
 
 import sys
 import os.path
-import datetime
 import logging
 import http.server
 import html
 import modem
-from config import TIME_FORMAT
+from config import now, TIME_FORMAT, WEB_TIME_FORMAT
 from schedule import Scheduler
 from translator import *
 from urllib.parse import urlparse, parse_qs
@@ -180,11 +179,11 @@ def main_page():
       })
   def schedule_row(event):
     return SCHEDULE_ROW_TEMPLATE.format(**{
-      'NEXT_TIME': html.escape(event.when.strftime(TIME_FORMAT)) if event.when else '',
+      'NEXT_TIME': html.escape(event.when.strftime(WEB_TIME_FORMAT)) if event.when else '',
       'ACTION': html.escape("%r" % event.action_function)
     })
   return DEFAULT_PAGE_TEMPLATE.format(**{
-    'TIME': datetime.datetime.now().strftime(TIME_FORMAT),
+    'TIME': now().strftime(WEB_TIME_FORMAT),
     'LINK_GROUP_ROWS': '\n'.join([lg_row(g) for g in modem.InsteonLinkGroup.groups.values()]),
     'DEVICE_ROWS': '\n'.join([device_row(d) for d in modem.InsteonDevice.devices.values()]),
     'SCHEDULE_ROWS': '\n'.join([schedule_row(e) for e in Scheduler().queued_events()])

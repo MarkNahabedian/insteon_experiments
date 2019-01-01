@@ -152,7 +152,7 @@ INSTEON_DEVICE_ROW_TEMPLATE = '''
 
 SCHEDULE_ROW_TEMPLATE = '''
 <tr>
-  <td valign="top">{NEXT_TIME}</td>
+  <td valign="top" class="{OVERDUE}">{NEXT_TIME}</td>
   <td valign="top">{ACTION}</td>
 </tr>
 '''
@@ -180,7 +180,8 @@ def main_page():
   def schedule_row(event):
     return SCHEDULE_ROW_TEMPLATE.format(**{
       'NEXT_TIME': html.escape(event.when.strftime(WEB_TIME_FORMAT)) if event.when else '',
-      'ACTION': html.escape("%r" % event.action_function)
+      'ACTION': html.escape("%r" % event.action_function),
+      'OVERDUE': 'overdue' if event.when < now() else ''
     })
   return DEFAULT_PAGE_TEMPLATE.format(**{
     'TIME': now().strftime(WEB_TIME_FORMAT),

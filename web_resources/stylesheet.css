@@ -38,3 +38,7 @@ table.schedule {
     border-bottom-style: solid;
     padding-right: 1em;
 }
+
+.overdue {
+    background-color: red;
+}

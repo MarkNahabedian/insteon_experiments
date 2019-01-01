@@ -18,6 +18,15 @@ import abc
 from singleton import Singleton
 
 
+def dump(byteArray):
+  '''dump returns a string that's a simple hex dump of the argument bytearray.'''
+  out = ''
+  for b in byteArray:
+    if len(out) > 0: out += ' '
+    out += '%02x' % b
+  return out
+
+
 def interpret_all(msg, translator):
   index = 0;
   messages = []
@@ -224,7 +233,9 @@ bytecodes('CommandCode',
           # get information about the Insteon modem itself.
           GetModemInfoCmd=0x60,
           AllLinkCmd=0x61,
-          SendMessageCmd=0x62
+          SendMessageCmd=0x62,
+          SetIMConfigurationCmd=0x6b,
+          GetIMConfigurationCmd=0x73
 )
 
 class GetLinkCmd(CommandCode):
@@ -247,6 +258,7 @@ class InsteonExtendedMessage(InsteonMessage):
 
 bytecodes('StandardDirectCommand',
           AssignToGroupCmd=0x01,
+          ProductDataRequestCmd=0x03,
           PingCmd=0x0F,
           BeepCmd=0x30,
           OnCmd=0x11,
@@ -444,7 +456,7 @@ class Command(Pattern):
   __metaclass__ = abc.ABCMeta
 
 class Echoed(Command):
-  '''Echoed is the superclass of all Patterns that can be echoed by the Insteon modem.'''
+  '''Echoed is the superclass of all Patterns that can be echoed by the Insteon modem verbatim without additional information in the response.'''
   __metaclass__ = abc.ABCMeta
 
 class ReadFromModem(Pattern):
@@ -467,6 +479,14 @@ pattern('ModemInfoResponse', (ReadFromModem,), (
   FirmwareVersion,
   Ack))
 
+pattern('ProductDataResponse', (ReadFromModem,), (
+  ProductDataRequestCmd, Byte,
+  # extended data:
+  Byte,
+  InsteonAddress,
+  Category,
+  Subcategory,
+  FirmwareVersion))
 
 class Flags (Translator):
   def __init__(self, **args):
@@ -531,6 +551,29 @@ class UserData11 (Byte): pass
 class UserData12 (Byte): pass
 class UserData13 (Byte): pass
 class UserData14 (Byte): pass
+
+class Spare1 (Byte): pass
+class Spare2 (Byte): pass
+
+
+class IMConfigurationFlags(Flags):
+  FlagBits = {
+    'disable_automatic_linking': BitMask(1, 7),
+    'monitor_mode': BitMask(1, 6),
+    'disable_automatic_LED_operation': BitMask(1, 5),
+    'disable_host_deadman': BitMask(1, 4),
+    'reserved': BitMask(4, 0)
+  }
+
+pattern('GetIMConfigurationCommand', (Command,), (
+  StartByte, GetIMConfigurationCmd))
+
+pattern('GetIMConfigurationResponse', (ReadFromModem,), (
+  StartByte, GetIMConfigurationCmd, IMConfigurationFlags, Spare1, Spare2, AckNack))
+
+pattern('SetIMConfigurationCommand', (Echoed,), (
+  StartByte, SetIMConfigurationCmd, IMConfigurationFlags))
+
 
 class LinkDBRecordFlags(Flags):
   FlagBits = {

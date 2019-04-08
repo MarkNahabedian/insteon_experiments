@@ -171,3 +171,17 @@ Event(modem.InsteonCommandAction(im, SendAllLinkCommand(LinkGroup(4), OffCmd(), 
 
 webserver.run(8000, im)
 </pre>
+
+
+<h1>Automatic Startup after Reboot</h1>
+
+I run Raspbian on my Raspberry Pi.  To start my home control
+scheduling and web services system when Raspbian comes up in
+multi-user mode, I add this line
+
+<pre>
+(cd /home/pi/insteon_experiments; PYTHONPATH='/home/pi/.local/lib/python3.5/site-packages'  python /home/pi/insteon_experiments/main.py &) >/home/pi/insteon_experiments/STARTUP_LOG 2>&1
+</pre>
+
+to <tt>/etc/rc.local</tt>.
+

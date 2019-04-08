@@ -6,6 +6,7 @@
 import datetime
 import math
 import config
+from schedule import NextTimeFunction
 
 
 def day_of_year(t):
@@ -87,8 +88,7 @@ class Solar(object):
     return self.solar_noon(t) + self.solar_noon_offset(t)
 
 
-# Event next_time_function
-class SolarEvent(object):
+class SolarEvent(NextTimeFunction):
   '''SolarEvent allows Events to be scheduled for sunrise or sunset.'''
   def __init__(self, s, solar_event):
     assert isinstance(s, Solar)

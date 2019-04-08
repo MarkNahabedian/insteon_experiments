@@ -1,5 +1,6 @@
 # Scheduling events for home automation.
 
+import abc
 import datetime
 import logging
 import numbers
@@ -56,8 +57,34 @@ class Scheduler(Singleton):
     return [ s.action for s in self.scheduler.queue]
     
 
-# Event next_time_function
-class Every(object):
+class NextTimeFunction(object, metaclass=abc.ABCMeta):
+  '''NextTimeFunction is an abstract base class to identify objects that
+  can be used as the next_time_function of an Event.'''
+
+  @abc.abstractmethod
+  def __repr__(self):
+    '''All NextTimeFunctions must be serializable.'''
+    pass
+
+  @abc.abstractmethod
+  def __call__(self, now=config.now(), previous=None):
+    '''A NextTimeFunction is called to compute the next time that it's
+    associated Event should be scheduled for.
+
+    Returns a datetime.Datetime if the associated event is to be
+    rescheduled.
+
+    now is a function to return the current time.
+
+    previous is a datetime.Datetime of the most recent firing of the
+    associated Event so that the next firing can be scheduled relative
+    to it if necessary.
+
+    '''
+    pass
+  
+
+class Every(NextTimeFunction):
   '''Every provides an Event next_time_function that schedules a periodic
       event with a fixed timedelta in between Events.'''
   def __init__(self, interval):
@@ -75,8 +102,7 @@ class Every(object):
     return now
 
 
-# Event next_time_function
-class DailyAt(object):
+class DailyAt(NextTimeFunction):
   '''DailyAt is a function that returns the next datetime (after now)
      having the specified hour and minute.'''
   delta = datetime.timedelta(days=1)
@@ -100,8 +126,7 @@ class DailyAt(object):
     return at + self.__class__.delta
 
 
-# Event next_time_function
-class TimeOffset(object):
+class TimeOffset(NextTimeFunction):
   '''TimeOffset is a function that adds an offset (in pinutes) to
      the result of another scheduling function.  It can be used to add
      an offset to another computed time like sunrise or sunset.

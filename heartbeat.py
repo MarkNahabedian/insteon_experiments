@@ -15,10 +15,11 @@ HEARTBEAT_FILE = "HEARTBEAT"
 HEARTBEAT_INTERVAL = datetime.timedelta(seconds=5*60)
 
 def still_alive():
+  '''Touch HEARTBEAT_FILE, updating its accessed and modified times to now.'''
   os.utime(HEARTBEAT_FILE)
 
 def _do_onLoggingStarted_first_heartbeat():
-  # Check time of heartbeat file before the Event is schedules.
+  # Check time of heartbeat file before the Event is scheduled.
   try:
     stat = os.stat(HEARTBEAT_FILE)
     logging.getLogger(__name__).info(

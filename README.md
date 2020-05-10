@@ -180,7 +180,7 @@ scheduling and web services system when Raspbian comes up in
 multi-user mode, I add this line
 
 <pre>
-(cd /home/pi/insteon_experiments; PYTHONPATH='/home/pi/.local/lib/python3.5/site-packages'  python /home/pi/insteon_experiments/main.py &) >/home/pi/insteon_experiments/STARTUP_LOG 2>&1
+(cd /home/pi/insteon_experiments; PYTHONPATH='/home/pi/.local/lib/python3.5/site-packages'  /usr/bin/python3.5 /home/pi/insteon_experiments/main.py &) >/home/pi/insteon_experiments/STARTUP_LOG 2>&1
 </pre>
 
 to <tt>/etc/rc.local</tt>.

@@ -7,6 +7,7 @@
 import csv
 import modem
 import translator
+from translator import InsteonAddress
 
 
 def read_device_descriptions(filepath):
@@ -18,8 +19,7 @@ def read_device_descriptions(filepath):
       a = record.get('address')
       l = record.get('location')
       if (not a) or (not l): continue
-      device = modem.InsteonDevice.lookup(
-          *[ bytes.fromhex(b)[0] for b in a.split('.')])
+      device = modem.InsteonDevice.lookup(InsteonAddress(a))
       if not device:
         continue
       device.location = l

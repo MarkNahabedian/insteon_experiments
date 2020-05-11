@@ -21,6 +21,6 @@ def read_device_descriptions(filepath):
       if (not a) or (not l): continue
       device = modem.InsteonDevice.lookup(InsteonAddress(a))
       if not device:
-        continue
+        device = modem.InsteonDevice(InsteonAddress(a))
       device.location = l
 

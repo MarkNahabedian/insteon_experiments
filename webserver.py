@@ -45,6 +45,10 @@ class MyRequestHandler(http.server.BaseHTTPRequestHandler):
         self.group_on()
       elif self.path.startswith('/group/off'):
         self.group_off()
+      elif self.path.startswith('/device/on'):
+        self.device_on()
+      elif self.path.startswith('/device/off'):
+        self.device_off()
       elif self.path == '/':
         self.main_page()
       else:
@@ -85,7 +89,7 @@ class MyRequestHandler(http.server.BaseHTTPRequestHandler):
         
   def group_on(self):
     im = self.check_modem()
-    if not modem: return
+    if not im: return
     group = self.get_group_number()
     im.sendCommand(bytearray(SendAllLinkCommand(LinkGroup(group), OnCmd(), Byte(0)).encode()))
     self.main_page()
@@ -93,9 +97,37 @@ class MyRequestHandler(http.server.BaseHTTPRequestHandler):
   def group_off(self):
     self.check_modem()
     im = self.check_modem()
-    if not modem: return
+    if not im: return
     group = self.get_group_number()
     im.sendCommand(bytearray(SendAllLinkCommand(LinkGroup(group), OffCmd(), Byte(0)).encode()))
+    self.main_page()
+
+  def device_on(self):
+    self.check_modem()
+    im = self.check_modem()
+    if not im: return
+    device = self.get_device_address()
+    im.sendCommand(bytearray(
+      SendMessageCommand(
+        InsteonAddress(device),
+        MessageFlags(extended=False, max_hops=3, hops_remaining=3),
+        OnCmd(),
+        Command2(0x01))
+      .encode()))
+    self.main_page()
+
+  def device_off(self):
+    self.check_modem()
+    im = self.check_modem()
+    if not im: return
+    device = self.get_device_address()
+    im.sendCommand(bytearray(
+      SendMessageCommand(
+        InsteonAddress(device),
+        MessageFlags(extended=False, max_hops=3, hops_remaining=3),
+        OffCmd(),
+        Command2(0))
+      .encode()))
     self.main_page()
 
   def get_group_number(self):
@@ -107,6 +139,16 @@ class MyRequestHandler(http.server.BaseHTTPRequestHandler):
       raise Exception("No link_group query parameter")
     g = g[0]
     return int(g)
+
+  def get_device_address(self):
+    u = urlparse(self.path)
+    q = parse_qs(u.query)
+    d = q.get('device')
+    if not d:
+      self.send_error(404, "No device query parameter")
+      raise Exception("No device query parameter")
+    d = d[0]
+    return d
 
 
 DEFAULT_PAGE_TEMPLATE = '''<html>
@@ -132,10 +174,10 @@ LINK_GROUP_ROW_TEMPLATE = '''
   <td margin="4" valign="top" rowspan="{GROUP_DEVICE_COUNT}">group {GROUP_NUMBER}</td>
   <td margin="4" >{DEVICE_ROWS}</td>
   <td margin="4" valign="center" rowspan="{GROUP_DEVICE_COUNT}">
-    <a href="/group/on?link_group={GROUP_NUMBER}">On</href>
+    <a align="center" href="/group/on?link_group={GROUP_NUMBER}">On</a>
   </td>
   <td margin="4" valign="center" rowspan="{GROUP_DEVICE_COUNT}">
-    <a valign="center" href="/group/off?link_group={GROUP_NUMBER}">Off</href>
+    <a align="center" href="/group/off?link_group={GROUP_NUMBER}">Off</a>
   </td>
 </tr>
 '''
@@ -147,6 +189,12 @@ INSTEON_DEVICE_ROW_TEMPLATE = '''
   <td class="subcategory">{SUBCATEGORY}</td>
   <td class="firmware_version">{FIRMWARE_VERSION}</td>
   <td class="location">{LOCATION}</td>
+  <td margin="4">
+    <a align="center" href="/device/on?device={ADDRESS}">On</a>
+  </td>
+  <td margin="4"">
+    <a align="center" href="/device/off?device={ADDRESS}">Off</a>
+  </td>
 </tr>
 '''
 
@@ -170,8 +218,9 @@ def main_page():
       'DEVICE_ROWS': '\n'.join([group_device(d) for d in link_group.devices])
       })
   def device_row(device):
+    da = device.address
     return INSTEON_DEVICE_ROW_TEMPLATE.format(**{
-      'ADDRESS': device.address,
+      'ADDRESS': device.address.address_string(),
       'CATEGORY': device.category or '',
       'SUBCATEGORY': device.subcategory or '',
       'FIRMWARE_VERSION': device.firmware_version or '',

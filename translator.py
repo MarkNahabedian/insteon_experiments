@@ -310,10 +310,20 @@ class ButtonEvent(Translator):
 
 
 class InsteonAddress(Translator):
-  def __init__(self, address1, address2, address3):
+  def __init__(self, *args):
+    if len(args) == 1:
+      address1, address2, address3 = [
+        bytes.fromhex(b)[0]
+        for b in args[0].split('.')]
+    elif len(args) == 3:
+      address1, address2, address3 = args
     self.address1 = address1
     self.address2 = address2
     self.address3 = address3
+
+  def address_string(self):
+    return "%02x.%02x.%02x" % (
+        self.address1, self.address2, self.address3)
 
   def __str__(self):
     return "%s-%02x.%02x.%02x" % (

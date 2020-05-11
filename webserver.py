@@ -67,12 +67,24 @@ class MyRequestHandler(http.server.BaseHTTPRequestHandler):
 
   def main_page(self):
     self.send_response(200, "Ok")
-    self.send_header('Content-type','text/html')
+    self.send_header('Content-type', 'text/html')
+    self.send_header('Content-Location', '/')
     self.end_headers()
     self.flush_headers()
     self.wfile.write(bytes(main_page(),
                            "utf8"))
     self.wfile.flush()
+
+  def return_to_main_page(self):
+    self.send_response(303, "See other")
+    self.send_header('Location', '/')
+    self.send_header('Content-type', 'text/html')
+    self.end_headers()
+    self.flush_headers()
+    self.wfile.write(bytes(RETURN_TO_MAIN_PAGE,
+                           "utf8"))
+    self.wfile.flush()
+   
 
   def send_file(self, path):
     try:
@@ -92,7 +104,7 @@ class MyRequestHandler(http.server.BaseHTTPRequestHandler):
     if not im: return
     group = self.get_group_number()
     im.sendCommand(bytearray(SendAllLinkCommand(LinkGroup(group), OnCmd(), Byte(0)).encode()))
-    self.main_page()
+    self.return_to_main_page()
 
   def group_off(self):
     self.check_modem()
@@ -100,7 +112,7 @@ class MyRequestHandler(http.server.BaseHTTPRequestHandler):
     if not im: return
     group = self.get_group_number()
     im.sendCommand(bytearray(SendAllLinkCommand(LinkGroup(group), OffCmd(), Byte(0)).encode()))
-    self.main_page()
+    self.return_to_main_page()
 
   def device_on(self):
     self.check_modem()
@@ -114,7 +126,7 @@ class MyRequestHandler(http.server.BaseHTTPRequestHandler):
         OnCmd(),
         Command2(0x01))
       .encode()))
-    self.main_page()
+    self.return_to_main_page()
 
   def device_off(self):
     self.check_modem()
@@ -128,7 +140,7 @@ class MyRequestHandler(http.server.BaseHTTPRequestHandler):
         OffCmd(),
         Command2(0))
       .encode()))
-    self.main_page()
+    self.return_to_main_page()
 
   def get_group_number(self):
     u = urlparse(self.path)
@@ -150,6 +162,14 @@ class MyRequestHandler(http.server.BaseHTTPRequestHandler):
     d = d[0]
     return d
 
+
+RETURN_TO_MAIN_PAGE = '''<html>
+  <head></head>
+  <body>
+    Return to
+    <a href="/">/</a>
+  <body>
+</html>'''
 
 DEFAULT_PAGE_TEMPLATE = '''<html>
   <head>

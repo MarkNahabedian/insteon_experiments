@@ -15,6 +15,7 @@
 
 
 import abc
+from sys import stdout
 from singleton import Singleton
 
 
@@ -106,9 +107,10 @@ def _interpret_as_subclass(cls, bytes, start_index):
   raise best_failure
 
 
-def show_translators():
+def show_translators(to=stdout):
   def walk(tc, level):
-    print('%s%s' % ('  '*level, tc._showstr()))
+    print('%s%s' % ('  '*level, tc._showstr()),
+          file=to)
     for sc in tc.__subclasses__():
       walk(sc, level + 1)
   walk(Translator, 0)

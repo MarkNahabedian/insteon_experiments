@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 64 64">
+  <style type="text/css">
+    svg {
+      background-color: transparent;
+    }
+    .on {
+      fill: yellow;
+      stroke: yellow;
+      stroke-width: 1;
+    }
+    .ray {
+      fill: none;
+      stroke: yellow;
+      stroke-width: 3;
+    }
+  </style>
+
+  <g class="on">
+    <circle class="bulb" cx="32.0" cy="32.0" r="12.8"></circle>
+    <path class="ray" d="M 51 32L 60 32M 43 47L 49 54M 27 50L 25 60M 14 40L 6 44M 14 23L 6 19M 27 13L 25 3M 43 16L 49 9"></path>
+ </g>
+
+</svg>

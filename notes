@@ -104,3 +104,182 @@ im.sendCommand(bytearray(SendAllLinkCommand(LinkGroup(1), OnCmd(), Byte(0)).enco
 TODO:
 thread that logs responses from modem.
 
+
+
+================================================================================
+setup
+
+light = modem.InsteonDevice.devices[InsteonAddress(0x0f, 0x83, 0x8f)]
+# light outlet module is model 2456S3  ApplianceLinc F00.00.1D
+light2 = modem.InsteonDevice.devices[InsteonAddress(0x0f, 0x82, 0x9e)]
+driveway = modem.InsteonDevice.devices[InsteonAddress(0x4a, 0x52, 0xb0)]
+
+im.modeminfo()
+InsteonDevice(InsteonAddress(0x49, 0x93, 0xbf))
+
+================================================================================
+Product data for category, subcategory
+
+interpret_all(light._simple_command(im, ProductDataRequestCmd(), Command2(0x00)), ReadFromModem)
+([], 0, NoMatch(<class 'translator.StartByte'>, (True, bytearray(b'\x02b\x0f\x83\x8f\x0f\x03\x00\x06\x02P\x0f\x83\x8fI\x93\xbf/\x03\x00'), 9), 0))
+
+b'\x02b\x0f\x82\x9e\x0f\x03\x00\x06\x02P\x0f\x82\x9eI\x93\xbf/\x03\x00'     light2
+b'\x02b\x0f\x83\x8f\x0f\x03\x00\x06\x02P\x0f\x83\x8fI\x93\xbf/\x03\x00'     light
+  ____  StartByte
+      _  b = 0x62  SendMessageCmd()
+       ____________   InsteonAddress(0x0f, 0x83, 0x8f)
+                   ____   MessageFlags(extended=False, hops_remaining=3, response=False, broadcast_NACK=False, max_hops=3, group=False)
+                       ____   ProductDataRequestCmd
+		           ____   Command2(0x00)
+			       _________   \x06\x02P = \x06\x02\x50   3 byte product code?
+                                        ____________   InsteonAddress(0x0f, 0x83, 0x8f)   FromAddress device
+					            _________   InsteonAddress(0x49, 0x93, 0xbf)   ToAddress modem
+
+
+
+
+
+
+================================================================================
+id_request
+
+We fully interpret the response but I have no clue what it means.
+
+interpret_all(light.id_request(im)[1], ReadFromModem)
+([Echo(SendMessageCommand(StartByte(), SendMessageCmd(), InsteonAddress(0x0f, 0x83, 0x8f),
+                          MessageFlags(hops_remaining=3, broadcast_NACK=False, max_hops=3, group=False, extended=False, response=False),
+                          IdRequestCmd(), Command2(0x01)), Ack()),
+  StandardMessageReceived(StartByte(), StandardMessageReceivedCode(),
+                          InsteonAddress(0x0f, 0x83, 0x8f),    # FromAddress: device
+                          InsteonAddress(0x49, 0x93, 0xbf),    # ToAddress: modem
+                          MessageFlags(hops_remaining=3, broadcast_NACK=False, max_hops=3, group=False, extended=False, response=True),
+                          IdRequestCmd(), Byte(0x01)),
+  StandardMessageReceived(StartByte(), StandardMessageReceivedCode(),
+                          InsteonAddress(0x0f, 0x83, 0x8f),    # FromAddress: device
+                          InsteonAddress(0x02, 0x09, 0x32),    # ?????
+                          MessageFlags(hops_remaining=3, broadcast_NACK=True, max_hops=3, group=False, extended=False, response=False),
+                          AssignToGroupCmd(), Byte(0x00))
+], 31, None)
+
+================================================================================
+ping
+
+interpret_all(light.ping(im)[1], ReadFromModem)
+([Echo(SendMessageCommand(StartByte(), SendMessageCmd(), InsteonAddress(0x0f, 0x83, 0x8f),
+                          MessageFlags(hops_remaining=3, broadcast_NACK=False, max_hops=3, group=False, extended=False, response=False),
+                          PingCmd(), Command2(0x01)), Ack()),
+  StandardMessageReceived(StartByte(), StandardMessageReceivedCode(),
+                          InsteonAddress(0x0f, 0x83, 0x8f),    # FromAddress: device
+			  InsteonAddress(0x49, 0x93, 0xbf),    # ToAddress: modem
+			  MessageFlags(hops_remaining=3, broadcast_NACK=False, max_hops=3, group=False, extended=False, response=True),
+                          PingCmd(), Byte(0x01))
+], 20, None)
+
+interpret_all(driveway.ping(im)[1], ReadFromModem)
+([Echo(SendMessageCommand(StartByte(), SendMessageCmd(),
+                          InsteonAddress(0x4a, 0x52, 0xb0),
+                          MessageFlags(hops_remaining=3, broadcast_NACK=False, response=False, max_hops=3, group=False, extended=False),
+                          PingCmd(), Command2(0x01)), Ack())], 9, None)
+Probably because driveway isn't paired with the modem we dont get the additional StandardMessageReceived message.
+
+================================================================================
+status
+
+on and off differ only in the two or three bytes at the end that we fail to interpret.
+
+Response might depend on device category.
+
+Also depends on Cmd2 byte.
+
+Off:
+
+interpret_all(light._simple_command(im, StatusRequestCmd(), Command2(0x00))[1], ReadFromModem)
+([Echo(SendMessageCommand(StartByte(), SendMessageCmd(),
+                          InsteonAddress(0x0f, 0x83, 0x8f),
+			  MessageFlags(group=False, hops_remaining=3, extended=False, max_hops=3, broadcast_NACK=False, response=False),
+			  StatusRequestCmd(), Command2(0x00)), Ack())],
+ 9, NoMatch(<class 'translator.SetOperatingFlagsCmd'>, bytearray(b'\x02b\x0f\x83\x8f\x0f\x19\x00\x06\x02P\x0f\x83\x8fI\x93\xbf/\x00\x00'), 18))
+ extra: b'\x00\x00'
+
+interpret_all(light._simple_command(im, StatusRequestCmd(), Command2(0x01))[1], ReadFromModem)
+([Echo(SendMessageCommand(StartByte(), SendMessageCmd(),
+                          InsteonAddress(0x0f, 0x83, 0x8f),
+                          MessageFlags(
+                                       broadcast_NACK=False,
+                                       extended=False,
+                                       group=False,
+                                       hops_remaining=3,
+                                       max_hops=3,
+                                       response=False,
+				       ),
+                          StatusRequestCmd(), Command2(0x01)), Ack())
+], 9, 
+NoMatch(<class 'translator.OnCmd'>, bytearray(b'\x02b\x0f\x83\x8f\x0f\x19\x01\x06\x02P\x0f\x83\x8fI\x93\xbf/\x00\x00'), 18))
+
+Failed to interpret b'\xbf/\x00\x00'
+
+
+
+'02 62 0f 83 8f 0f 19 01 06
+ 02 50 0f 83 8f 49 93 bf 2f 00 00'
+ __   StartByte
+    __   StandardMessageReceivedCode
+       ________  InsteonAddress(0x0f, 0x83, 0x8f)    device address
+                ________   InsteonAddress(0x49, 0x93, 0xbf)    modem addresss
+                         __   
+
+
+On:
+
+light.on(im)
+
+interpret_all(light._simple_command(im, StatusRequestCmd(), Command2(0x00))[1], ReadFromModem)
+([Echo(SendMessageCommand(StartByte(), SendMessageCmd(),
+				       InsteonAddress(0x0f, 0x83, 0x8f),
+				       MessageFlags(group=False, hops_remaining=3, extended=False, max_hops=3, broadcast_NACK=False, response=False),
+				       StatusRequestCmd(), Command2(0x00)), Ack())],
+ 9, NoMatch(<class 'translator.SetOperatingFlagsCmd'>, bytearray(b'\x02b\x0f\x83\x8f\x0f\x19\x00\x06\x02P\x0f\x83\x8fI\x93\xbf/\x00\xff'), 18))
+ extra: b'\x00\xff'
+
+interpret_all(light._simple_command(im, StatusRequestCmd(), Command2(0x01))[1], ReadFromModem)
+([Echo(SendMessageCommand(StartByte(), SendMessageCmd(),
+                          InsteonAddress(0x0f, 0x83, 0x8f),
+                          MessageFlags(
+                                       broadcast_NACK=False,
+                                       extended=False,
+                                       group=False,
+                                       hops_remaining=3,
+                                       max_hops=3,
+                                       response=False,
+				       ),
+                          StatusRequestCmd(), Command2(0x01)), Ack())],
+ 9,
+ NoMatch(<class 'translator.OffCmd'>, bytearray(b'\x02b\x0f\x83\x8f\x0f\x19\x01\x06\x02P\x0f\x83\x8fI\x93\xbf/\x00\xff'), 18))
+extra: b'\x00\xff'
+
+failed to interpret b'\x00\xff'
+
+
+
+
+
+
+
+
+class ProductKey (Translator):
+  def __init__(msb, msb2, lsb):
+    self.msb = msb
+    self.msb2 = msb2
+    self.lsb = lsb
+
+  def __repr__(self):
+    return "%s(0x%02x, 0x%02x, 0x%02x)" % (
+      self.__class__.__name__,
+      self.msb, self.msb2, self.lsb)
+
+  def product_key(self):
+    return (self.msb << 8) + (self.msb2 << 4) + self.lsb
+
+
+
+

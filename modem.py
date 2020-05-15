@@ -109,7 +109,13 @@ class InsteonDevice(Device):
     return self._simple_command(modem, IdRequestCmd(), Command2(0x01))
 
   def status(self, modem):
-    acked, response, response_index = self._simple_command(modem, StatusRequestCmd(), Command2(0x01))
+    acked, response, _ = self._simple_command(modem, StatusRequestCmd(), Command2(0x00))
+    if not acked:
+      return
+    rfm, length1 = ReadFromModem.interpret(response, 0)
+    smr, length2 = StandardMessageReceived.interpret(response, length1)
+    assert len(response) == length1 + length2
+    return smr.Byte.byte
 
   def on(self, modem):
     return self._simple_command(modem, OnCmd(), Command2(0x01))

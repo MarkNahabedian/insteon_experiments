@@ -272,6 +272,7 @@ class InsteonExtendedMessage(InsteonMessage):
 
 
 bytecodes('StandardDirectCommand',
+          ZeroCmd=0x00,
           AssignToGroupCmd=0x01,
           ProductDataRequestCmd=0x03,
           PingCmd=0x0F,

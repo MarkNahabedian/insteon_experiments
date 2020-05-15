@@ -19,6 +19,13 @@ from sys import stdout
 from singleton import Singleton
 
 
+DEBUG_INTERPRETATION = False
+
+def debug_interpretation(*args):
+  if DEBUG_INTERPRETATION:
+    print(*args)
+
+
 def dump(byteArray):
   '''dump returns a string that's a simple hex dump of the argument bytearray.'''
   out = ''
@@ -64,7 +71,7 @@ class NoMatch(Exception):
   '''NoMatch is raised when a Translator.interpret method fails to match
   the binary data.'''
   def __init__(self, trans, bytes, index):
-    self.translator = trans
+    self.translator = trans   # The class that is failing to interpret the message
     self.bytearray = bytes
     self.start_index = index
   def __str__(self):
@@ -96,13 +103,16 @@ class Translator(object):
 
 # See if the data can be interpreted as sone subclass of cls.
 def _interpret_as_subclass(cls, bytes, start_index):
+  debug_interpretation("_interpret_as_subclass", cls.__name__, start_index)
   best_failure = None
   for sc in cls.__subclasses__():
+    debug_interpretation("  subclass", sc)
     try:
       return sc.interpret(bytes, start_index)
     except NoMatch as e:
       if best_failure is None or e.start_index >= best_failure.start_index:
         best_failure = e
+  debug_interpretation("_interpret_as_subclass no match", best_failure)
   assert best_failure
   raise best_failure
 
@@ -138,6 +148,7 @@ class Byte(Translator):
 
   @classmethod
   def interpret(cls, bytes, start_index):
+    debug_interpretation("interpret", cls.__name__, start_index)
     return cls(bytes[start_index]), 1
 
 
@@ -160,6 +171,7 @@ class ByteCode(Translator):
 
   @classmethod
   def interpret(cls, bytes, start_index):
+    debug_interpretation("interpret", cls.__name__, start_index)
     b = bytes[start_index]
     if not cls.byte_code_match(b):
       raise NoMatch(cls, bytes, start_index)
@@ -179,6 +191,7 @@ class ByteCode(Translator):
 
   @classmethod
   def interpret(cls, bytes, start_index):
+    debug_interpretation("interpret", cls.__name__, start_index)
     if start_index >= len(bytes):
       raise NoMatch(cls, bytes, start_index)
     b = bytes[start_index]
@@ -302,6 +315,7 @@ class ButtonEvent(Translator):
 
   @classmethod
   def interpret(cls, bytes, start_index):
+    debug_interpretation("interpret", cls.__name__, start_index)
     b = bytes[start_index]
     bn = b >> 4
     act = b and 0x0F
@@ -342,6 +356,7 @@ class InsteonAddress(Translator):
 
   @classmethod
   def interpret(cls, bytes, start_index):
+    debug_interpretation("interpret", cls.__name__, start_index)
     if start_index + 3 >= len(bytes):
       raise NoMatch(cls, bytes, start_index)
     return InsteonAddress(bytes[start_index],
@@ -405,6 +420,7 @@ class Pattern(Translator):
 
   @classmethod
   def interpret(cls, bytes, start_index):
+    debug_interpretation("interpret", cls.__name__, start_index)
     # print('%s.interpret(%r, %d)' % (cls.__name__, bytes, start_index))
     index = start_index
     values = []
@@ -531,6 +547,7 @@ class Flags (Translator):
 
   @classmethod
   def interpret(cls, bytes, start_index):
+    debug_interpretation("interpret", cls.__name__, start_index)
     i = cls()
     i.flags = bytes[start_index]
     return i, 1

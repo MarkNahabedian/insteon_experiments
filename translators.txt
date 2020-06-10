@@ -1,34 +1,55 @@
 This file is written by the show_translators function.
 
 <Translator>
-  <Byte>
-    <LinkGroup>
-    <UserData9>
-    <LinkData1>
-    <Spare2>
-    <UserData8>
-    <LinkData3>
-    <Subcategory>
-    <UserData3>
-    <UserData2>
-    <UserData6>
-    <UserData1>
-    <UserData11>
-    <UserData13>
-    <UserData7>
-    <UserData12>
-    <UserData4>
-    <LinkData2>
-    <FirmwareVersion>
-    <Spare1>
-    <UserData5>
-    <Command2>
-    <UserData10>
-    <UserData14>
-    <Category>
-  <InsteonMessage>
-    <InsteonStandardMessage>
-    <InsteonExtendedMessage>
+  <ByteCode>
+    <AckNack>
+      Ack: 	 0x06
+      Nack: 	 0x15
+    <StandardDirectCommand>
+      IdRequestCmd: 	 0x10
+      StatusRequestCmd: 	 0x19
+      OnCmd: 	 0x11
+      OffCmd: 	 0x13
+      BeepCmd: 	 0x30
+      ZeroCmd: 	 0x00
+      SetOperatingFlagsCmd: 	 0x20
+      ProductDataRequestCmd: 	 0x03
+      PingCmd: 	 0x0f
+      AssignToGroupCmd: 	 0x01
+    <AllLinkingDirection>
+      ModemIsController: 	 0x01
+      ModemIsResponder: 	 0x00
+      LinkDeleted: 	 0xff
+    <MessageOrigin>
+      AllLinkingCompletedCode: 	 0x53
+      ExtendedMessageReceivedCode: 	 0x51
+      X10ReceivedCode: 	 0x52
+      AllLinkRecordResponseCode: 	 0x57
+      OriginHostCode: 	 0x60
+      AllLinkCleanupFailureReportCode: 	 0x56
+      StandardMessageReceivedCode: 	 0x50
+      UserResetDetectedCode: 	 0x55
+      ButtonEventReportCode: 	 0x54
+      AllLinkCleanupStatusCode: 	 0x58
+    <CommandCode>
+      SendMessageCmd: 	 0x62
+      SetIMConfigurationCmd: 	 0x6b
+      <GetLinkCmd>
+        GetNextLinkCmd: 	 0x6a
+        Get1stLinkCmd: 	 0x69
+      GetModemInfoCmd: 	 0x60
+      GetIMConfigurationCmd: 	 0x73
+      AllLinkCmd: 	 0x61
+    StartByte: 	 0x02
+    <AllLinkCleanupFailureReportByte2>
+      AllLinkCleanupFailureReportByte2Expected: 	 0x02
+    <ButtonAction>
+      ButtonTapped: 	 0x02
+      ButtonReleased: 	 0x04
+      ButtonPressAndHold: 	 0x03
+  <InsteonAddress>
+    <FromAddress>
+    <ToAddress>
   <Pattern>
     <Command>
       <Echoed>
@@ -46,66 +67,45 @@ This file is written by the show_translators function.
       <ProductDataResponse>: 	 ProductDataRequestCmd, <Byte>, <Byte>, <InsteonAddress>, <Category>, <Subcategory>, <FirmwareVersion>
       <StatusMessage>
         <StandardMessageReceived>: 	 StartByte, StandardMessageReceivedCode, <FromAddress>, <ToAddress>, <MessageFlags>, <StandardDirectCommand>, <Byte>
-        <X10Received>: 	 StartByte, X10ReceivedCode, <Byte>, <Byte>
-        UserResetDetected: 	 StartByte, UserResetDetectedCode
         <ButtonEventReport>: 	 StartByte, ButtonEventReportCode, <ButtonEvent>
         <AllLinkingCompleted>: 	 StartByte, AllLinkingCompletedCode, <AllLinkingDirection>, <LinkGroup>, <InsteonAddress>, <Category>, <Subcategory>, <FirmwareVersion>
-        <AllLinkCleanupFailureReport>: 	 StartByte, AllLinkCleanupFailureReportCode, <AllLinkCleanupFailureReportByte2>, <LinkGroup>, <InsteonAddress>
-        <ExtendedMessageReceived>: 	 StartByte, ExtendedMessageReceivedCode, <FromAddress>, <ToAddress>, <MessageFlags>, <StandardDirectCommand>, <Byte>, <UserData1>, <UserData2>, <UserData3>, <UserData4>, <UserData5>, <UserData6>, <UserData7>, <UserData8>, <UserData9>, <UserData10>, <UserData11>, <UserData12>, <UserData13>, <UserData14>
         <AllLinkCleanupStatus>: 	 StartByte, AllLinkCleanupStatusCode, <AckNack>
         <AllLinkRecordResponse>: 	 StartByte, AllLinkRecordResponseCode, <LinkDBRecord>
+        <X10Received>: 	 StartByte, X10ReceivedCode, <Byte>, <Byte>
+        <ExtendedMessageReceived>: 	 StartByte, ExtendedMessageReceivedCode, <FromAddress>, <ToAddress>, <MessageFlags>, <StandardDirectCommand>, <Byte>, <UserData1>, <UserData2>, <UserData3>, <UserData4>, <UserData5>, <UserData6>, <UserData7>, <UserData8>, <UserData9>, <UserData10>, <UserData11>, <UserData12>, <UserData13>, <UserData14>
+        <AllLinkCleanupFailureReport>: 	 StartByte, AllLinkCleanupFailureReportCode, <AllLinkCleanupFailureReportByte2>, <LinkGroup>, <InsteonAddress>
+        UserResetDetected: 	 StartByte, UserResetDetectedCode
       <GetIMConfigurationResponse>: 	 StartByte, GetIMConfigurationCmd, <IMConfigurationFlags>, <Spare1>, <Spare2>, <AckNack>
     <LinkDBRecord>: 	 <LinkDBRecordFlags>, <LinkGroup>, <InsteonAddress>, <LinkData1>, <LinkData2>, <LinkData3>
-  <InsteonAddress>
-    <FromAddress>
-    <ToAddress>
   <ButtonEvent>
-  <ByteCode>
-    StartByte: 	 0x02
-    <CommandCode>
-      AllLinkCmd: 	 0x61
-      SendMessageCmd: 	 0x62
-      <GetLinkCmd>
-        Get1stLinkCmd: 	 0x69
-        GetNextLinkCmd: 	 0x6a
-      SetIMConfigurationCmd: 	 0x6b
-      GetIMConfigurationCmd: 	 0x73
-      GetModemInfoCmd: 	 0x60
-    <ButtonAction>
-      ButtonReleased: 	 0x04
-      ButtonPressAndHold: 	 0x03
-      ButtonTapped: 	 0x02
-    <MessageOrigin>
-      AllLinkCleanupFailureReportCode: 	 0x56
-      AllLinkRecordResponseCode: 	 0x57
-      AllLinkCleanupStatusCode: 	 0x58
-      ButtonEventReportCode: 	 0x54
-      ExtendedMessageReceivedCode: 	 0x51
-      StandardMessageReceivedCode: 	 0x50
-      AllLinkingCompletedCode: 	 0x53
-      UserResetDetectedCode: 	 0x55
-      OriginHostCode: 	 0x60
-      X10ReceivedCode: 	 0x52
-    <StandardDirectCommand>
-      SetOperatingFlagsCmd: 	 0x20
-      ZeroCmd: 	 0x00
-      BeepCmd: 	 0x30
-      IdRequestCmd: 	 0x10
-      StatusRequestCmd: 	 0x19
-      OffCmd: 	 0x13
-      ProductDataRequestCmd: 	 0x03
-      PingCmd: 	 0x0f
-      OnCmd: 	 0x11
-      AssignToGroupCmd: 	 0x01
-    <AckNack>
-      Nack: 	 0x15
-      Ack: 	 0x06
-    <AllLinkCleanupFailureReportByte2>
-      AllLinkCleanupFailureReportByte2Expected: 	 0x02
-    <AllLinkingDirection>
-      LinkDeleted: 	 0xff
-      ModemIsResponder: 	 0x00
-      ModemIsController: 	 0x01
+  <InsteonMessage>
+    <InsteonStandardMessage>
+    <InsteonExtendedMessage>
+  <Byte>
+    <UserData11>
+    <LinkData2>
+    <FirmwareVersion>
+    <UserData14>
+    <Category>
+    <UserData9>
+    <LinkData3>
+    <Spare1>
+    <Spare2>
+    <UserData12>
+    <UserData3>
+    <UserData2>
+    <UserData6>
+    <Subcategory>
+    <LinkGroup>
+    <UserData1>
+    <UserData7>
+    <UserData13>
+    <UserData10>
+    <UserData5>
+    <LinkData1>
+    <UserData8>
+    <Command2>
+    <UserData4>
   <Flags>
     <IMConfigurationFlags>
     <LinkDBRecordFlags>

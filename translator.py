@@ -227,14 +227,6 @@ class ByteCode(Translator):
     return byte_code == cls.byte_code
 
   @classmethod
-  def interpret(cls, bytes, start_index):
-    debug_interpretation("interpret", cls.__name__, start_index)
-    b = bytes[start_index]
-    if not cls.byte_code_match(b):
-      raise NoMatch(cls, bytes, start_index)
-    return cls(), 1
-
-  @classmethod
   def acceptable_bytes(cls):
     values = []
     def walk(cls):
@@ -421,9 +413,9 @@ class InsteonAddress(Translator):
     debug_interpretation("interpret", cls.__name__, start_index)
     if start_index + 3 >= len(bytes):
       raise NoMatch(cls, bytes, start_index)
-    return InsteonAddress(bytes[start_index],
-                          bytes[start_index + 1],
-                          bytes[start_index + 2]), 3
+    return cls(bytes[start_index],
+               bytes[start_index + 1],
+               bytes[start_index + 2]), 3
 
   def __eq__(self, other):
     return (isinstance(other, InsteonAddress) and

@@ -121,7 +121,8 @@ def show_translators(to=stdout):
   def walk(tc, level):
     print('%s%s' % ('  '*level, tc._showstr()),
           file=to)
-    for sc in tc.__subclasses__():
+    for sc in sorted(tc.__subclasses__(),
+                     key=lambda c: c.__name__):
       walk(sc, level + 1)
   walk(Translator, 0)
 

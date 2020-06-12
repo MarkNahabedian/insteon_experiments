@@ -134,6 +134,9 @@ class Translator(object):
     raise Exception("No interpret method")
     pass
 
+  def __iter__(self):
+    return iter([])
+
   def match(self, pattern, matches):
     """Does this object match pattern?  Returns False or a dictionary of
     matches such that pattern matches self."""
@@ -465,6 +468,12 @@ class Pattern(Translator):
                                 #         for pt in self.__class__.parameter_types
                                 # if isinstance(v, pt)]) > 0
                                 ]))
+
+  def __iter__(self):
+    for v in self.values:
+      yield v
+      for v1 in v:
+        yield v1
 
   def match(self, pattern, matches):
     if type(self) != type(pattern):

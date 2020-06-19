@@ -385,11 +385,19 @@ class InsteonAddress(Translator):
 
   def __init__(self, *args):
     if len(args) == 1:
-      address1, address2, address3 = [
-        bytes.fromhex(b)[0]
-        for b in args[0].split('.')]
+      if isinstance(args[0], InsteonAddress):
+        address1 = args[0].address1
+        address2 = args[0].address2
+        address3 = args[0].address3
+      else:
+        address1, address2, address3 = [
+          bytes.fromhex(b)[0]
+          for b in args[0].split('.')]
     elif len(args) == 3:
       address1, address2, address3 = args
+    else:
+      raise Exception("Bad initialization arguments %r for InstepnAddress"
+                      % args)
     self.address1 = address1
     self.address2 = address2
     self.address3 = address3

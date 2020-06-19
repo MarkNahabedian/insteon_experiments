@@ -4,6 +4,7 @@
 # similar to that of "initialization lists" in the MIT Lisp Machine
 # system.
 
+import logging
 import re
 import sys
 
@@ -28,15 +29,15 @@ def _find_actions_for_module(m, actionname):
   return [f[1] for f in found]
 
 
-def run(actionname):
+def run(actionname, **action_specific_kwargs):
   '''run runs all of the actions for actionname, across all imported modules.'''
   for m in sys.modules.values():
     if not m:    # Could be None.
       continue
     actions = _find_actions_for_module(m, actionname)
     for a in actions:
-      print('Running action %s %r %r' % (actionname, m, a))
-      a()
+      logging.getLogger(__name__).info('Running action %s %r %r' % (actionname, m, a)) 
+      a(**action_specific_kwargs)
 
 
 def list_action_names():

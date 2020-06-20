@@ -27,6 +27,19 @@ table.devices {
     padding-right: 1em;
 }
 
+.on_off {
+    height: 1em;
+    width: 1em;
+    align-items: center;
+    text-align: center;
+}
+
+.on_off img {
+    margin: 0 auto;
+    width: 80%;
+    height: 80%;
+}
+
 table.schedule {
     padding: 4;
 }

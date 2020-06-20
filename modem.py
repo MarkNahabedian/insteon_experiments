@@ -56,20 +56,22 @@ class InsteonDevice(Device):
 
   @classmethod
   def lookup(cls, *args):
-    if len(args) == 1 and isinstance(args[0], InsteonAddress):
-      addr = args[0]
-    elif len(args) == 3:
-      addr = InsteonAddress(*args)
-    else:
-      raise Exception("Bad parameters %s" % repr(args))
+    addr = InsteonAddress(*args)
     if addr in cls.devices:
       return cls.devices[addr]
     return None
 
   @classmethod
   def list_devices(cls):
-    for d in cls.devices.values():
+    for d in cls:
       print(str(d))
+
+  @staticmethod
+  # If this method is called explicitly one can use the resulting
+  # iterator.  For some reason, the iter built-in function raises a
+  # TypeError rather than calling this method.
+  def __iter__():
+    return iter(InsteonDevice.devices.values())
 
   def __init__(self, insteonAddress):
     assert isinstance(insteonAddress, InsteonAddress)

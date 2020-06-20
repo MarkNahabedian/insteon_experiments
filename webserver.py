@@ -20,9 +20,21 @@ def logger():
   return logging.getLogger(__name__)
 
 
+WEB_RESOURCES_DIR = 'web_resources'
+
+
+CONTENT_TYPE = {
+  'css': 'text/css',
+  'html': 'text/html',
+  'js': 'text/javascript',
+  'json': 'application/json',
+  'svg': 'image/svg+xml',
+}
+
+
 def file_resource_path(filename):
   base = os.path.dirname(sys.modules[__name__].__file__)
-  return os.path.join(base, 'web_resources', filename)
+  return os.path.join(base, WEB_RESOURCES_DIR, filename)
 
 
 class MyRequestHandler(http.server.BaseHTTPRequestHandler):
@@ -41,6 +53,9 @@ class MyRequestHandler(http.server.BaseHTTPRequestHandler):
         self.send_error(404, 'Resource not found')
       elif self.path == '/stylesheet.css':
         self.send_file(file_resource_path('stylesheet.css'))
+      elif self.path.startswith('/' + WEB_RESOURCES_DIR + '/'):
+        self.send_file(
+          file_resource_path(self.path[2 + len(WEB_RESOURCES_DIR):]))
       elif self.path.startswith('/group/on'):
         self.group_on()
       elif self.path.startswith('/group/off'):
@@ -89,14 +104,17 @@ class MyRequestHandler(http.server.BaseHTTPRequestHandler):
   def send_file(self, path):
     try:
       with open(path) as f:
+        tag = path.rsplit(".", 1)[-1]
+        ct = CONTENT_TYPE[tag]
         contents = f.read()
         self.send_response(200, "Ok")
-        self.send_header('Content-type','text/css')
+        self.send_header('Content-type', ct)
         self.end_headers()
         self.flush_headers()
         self.wfile.write(bytes(contents, "utf8"))
         self.wfile.flush()
     except Exception as e:
+      logger().info("Web server can't open %s" % path)
       self.send_error(404, str(e))
         
   def group_on(self):
@@ -209,6 +227,9 @@ INSTEON_DEVICE_ROW_TEMPLATE = '''
   <td class="subcategory">{SUBCATEGORY}</td>
   <td class="firmware_version">{FIRMWARE_VERSION}</td>
   <td class="location">{LOCATION}</td>
+  <td class="on_off">
+    <img src="{ON_OFF_ICON}" title="{ON_OFF_TEXT}" />
+  </td>
   <td margin="4">
     <a align="center" href="/device/on?device={ADDRESS}">On</a>
   </td>
@@ -239,12 +260,25 @@ def main_page():
       })
   def device_row(device):
     da = device.address
+    if device.cmd1 == OnCmd():
+      on_off_icon = 'web_resources/on.svg'
+      on_off_text = ("On as of %s" %
+                     device.received_timestamp.strftime(WEB_TIME_FORMAT))
+    elif device.cmd1 == OffCmd():
+      on_off_icon = 'web_resources/off.svg'
+      on_off_text = ("Off as of %s" %
+                     device.received_timestamp.strftime(WEB_TIME_FORMAT))
+    else:
+      on_off_icon = 'web_resources/unknown_status.svg'
+      on_off_text = "Unknown status"
     return INSTEON_DEVICE_ROW_TEMPLATE.format(**{
       'ADDRESS': device.address.address_string(),
       'CATEGORY': device.category or '',
       'SUBCATEGORY': device.subcategory or '',
       'FIRMWARE_VERSION': device.firmware_version or '',
-      'LOCATION': device.location or ''
+      'LOCATION': device.location or '',
+      'ON_OFF_ICON': on_off_icon,
+      'ON_OFF_TEXT': on_off_text
       })
   def schedule_row(event):
     return SCHEDULE_ROW_TEMPLATE.format(**{

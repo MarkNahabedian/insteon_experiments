@@ -386,14 +386,20 @@ class InsteonAddress(Translator):
   def __init__(self, *args):
     if len(args) == 1:
       if isinstance(args[0], InsteonAddress):
+        # From an InsteonAddress.  This is used, for example to
+        # construct a different subtype of InsteonAddress
+        # (e.g. FromAddress) from a given InsteonAddress.
         address1 = args[0].address1
         address2 = args[0].address2
         address3 = args[0].address3
       else:
+        # From a string of three "." delimiter hex bytes,
+        # e.g. 0f.a1.be.
         address1, address2, address3 = [
           bytes.fromhex(b)[0]
           for b in args[0].split('.')]
     elif len(args) == 3:
+      # From An array of three 8 bit integers
       address1, address2, address3 = args
     else:
       raise Exception("Bad initialization arguments %r for InstepnAddress"

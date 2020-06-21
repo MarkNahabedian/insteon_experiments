@@ -119,45 +119,37 @@ class MyRequestHandler(http.server.BaseHTTPRequestHandler):
         
   def group_on(self):
     im = self.check_modem()
-    if not im: return
-    group = self.get_group_number()
-    im.sendCommand(bytearray(SendAllLinkCommand(LinkGroup(group), OnCmd(), Byte(0)).encode()))
+    if not im:
+      self.return_to_main_page()
+    im.groupOn(self.get_group_number())
     self.return_to_main_page()
 
   def group_off(self):
     self.check_modem()
     im = self.check_modem()
-    if not im: return
-    group = self.get_group_number()
-    im.sendCommand(bytearray(SendAllLinkCommand(LinkGroup(group), OffCmd(), Byte(0)).encode()))
+    if not im:
+      self.return_to_main_page()
+    im.groupOff(self.get_group_number())
     self.return_to_main_page()
 
   def device_on(self):
     self.check_modem()
     im = self.check_modem()
-    if not im: return
-    device = self.get_device_address()
-    im.sendCommand(bytearray(
-      SendMessageCommand(
-        InsteonAddress(device),
-        MessageFlags(extended=False, max_hops=3, hops_remaining=3),
-        OnCmd(),
-        Command2(0x01))
-      .encode()))
+    if not im:
+      self.return_to_main_page()
+    device = modem.InsteonDevice.lookup(self.get_device_address())
+    if device:
+      device.on(im)
     self.return_to_main_page()
 
   def device_off(self):
     self.check_modem()
     im = self.check_modem()
-    if not im: return
-    device = self.get_device_address()
-    im.sendCommand(bytearray(
-      SendMessageCommand(
-        InsteonAddress(device),
-        MessageFlags(extended=False, max_hops=3, hops_remaining=3),
-        OffCmd(),
-        Command2(0))
-      .encode()))
+    if not im:
+      self.return_to_main_page()
+    device = modem.InsteonDevice.lookup(self.get_device_address())
+    if device:
+      device.off(im)
     self.return_to_main_page()
 
   def get_group_number(self):
@@ -249,7 +241,7 @@ SCHEDULE_ROW_TEMPLATE = '''
 def main_page():
   def group_device(device):
     return '{ADDRESS} {LOCATION} <br />'.format(**{
-      'ADDRESS': html.escape(str(device.address)),
+      'ADDRESS': html.escape(device.address.address_string()),
       'LOCATION': html.escape(device.location)
       })
   def lg_row(link_group):
@@ -272,11 +264,11 @@ def main_page():
       on_off_icon = 'web_resources/unknown_status.svg'
       on_off_text = "Unknown status"
     return INSTEON_DEVICE_ROW_TEMPLATE.format(**{
-      'ADDRESS': device.address.address_string(),
+      'ADDRESS': html.escape(device.address.address_string()),
       'CATEGORY': device.category or '',
       'SUBCATEGORY': device.subcategory or '',
       'FIRMWARE_VERSION': device.firmware_version or '',
-      'LOCATION': device.location or '',
+      'LOCATION': html.escape(device.location) or '',
       'ON_OFF_ICON': on_off_icon,
       'ON_OFF_TEXT': on_off_text
       })

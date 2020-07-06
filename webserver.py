@@ -234,7 +234,7 @@ INSTEON_DEVICE_ROW_TEMPLATE = '''
 SCHEDULE_ROW_TEMPLATE = '''
 <tr>
   <td valign="top" class="{OVERDUE}">{NEXT_TIME}</td>
-  <td valign="top">{ACTION}</td>
+  <td valign="top">{DESCRIPTION}</td>
 </tr>
 '''
 
@@ -276,6 +276,7 @@ def main_page():
     return SCHEDULE_ROW_TEMPLATE.format(**{
       'NEXT_TIME': html.escape(event.when.strftime(WEB_TIME_FORMAT)) if event.when else '',
       'ACTION': html.escape("%r" % event.action_function),
+      'DESCRIPTION': interpret_action(event.action_function),
       'OVERDUE': 'overdue' if event.when < now() else ''
     })
   return DEFAULT_PAGE_TEMPLATE.format(**{
@@ -284,6 +285,28 @@ def main_page():
     'DEVICE_ROWS': '\n'.join([device_row(d) for d in modem.InsteonDevice.devices.values()]),
     'SCHEDULE_ROWS': '\n'.join([schedule_row(e) for e in Scheduler().queued_events()])
   })
+
+
+def interpret_action(action_function):
+  if isinstance(action_function, modem.InsteonCommandAction):
+    converters = {
+      'command': lambda x: ('on' if isinstance(x, OnCmd)
+                            else 'off' if isinstance(x, OffCmd)
+                            else 'unknown')
+      }
+    translators = [
+      ( SendAllLinkCommand(LinkGroup(MatchVariable('group_number')),
+                           MatchVariable('command'), Byte(0)),
+        'turn group %(group_number)d %(command)s' ),
+    ]
+    for (pattern, format) in translators:
+      m = match(action_function.command, pattern)
+      if m != False:
+        for k, v in m.items():
+          if k in converters:
+            m[k] = converters[k](v)
+        return format % m
+  return action_function
 
 
 def run(port, insteon_modem):

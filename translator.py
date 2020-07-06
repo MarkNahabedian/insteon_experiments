@@ -549,7 +549,9 @@ def pattern(name, superclasses, token_types):
       self.values = []
       argindex = 0
       for tt in self.pattern:
-        if argindex < len(args) and isinstance(args[argindex], tt):
+        if argindex < len(args) and (
+            isinstance(args[argindex], tt) or
+            isinstance(args[argindex], MatchVariable)):
           v = args[argindex]
           argindex += 1
         else:

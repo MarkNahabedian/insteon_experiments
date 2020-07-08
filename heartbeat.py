@@ -28,6 +28,6 @@ def _do_onLoggingStarted_first_heartbeat():
           strftime(config.TIME_FORMAT))
   except FileNotFoundError:
     pass
-  Event(still_alive, Every(HEARTBEAT_INTERVAL)).schedule()
+  Event(still_alive, Every(HEARTBEAT_INTERVAL), "Still alive?").schedule()
 
 

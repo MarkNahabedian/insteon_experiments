@@ -36,6 +36,13 @@ def dump(byteArray):
   return out
 
 
+def add_method(cls):
+  def decorator(func):
+    setattr(cls, func.__name__, func)
+    pass
+  return decorator
+
+
 class MatchVariable(object):
   """MatchVariable is a named, capturing placeholder which can appear in
   the pattern argument of the match()."""
@@ -133,6 +140,9 @@ class Translator(object):
   def interpret(cls, bytes, start_index):
     raise Exception("No interpret method")
     pass
+
+  def description(self):
+    return None
 
   def __iter__(self):
     return iter([])
@@ -335,6 +345,13 @@ bytecodes('StandardDirectCommand',
           StatusRequestCmd=0x19,
           SetOperatingFlagsCmd=0x20
 )
+
+
+@add_method(OnCmd)
+def description(self): return "on"
+
+@add_method(OffCmd)
+def description(self): return "off"
 
 
 # bytecodes('AllLinkCommand',
@@ -590,6 +607,11 @@ class Subcategory(Byte): pass
 class FirmwareVersion(Byte): pass
 
 pattern('GetModemInfo', (Command,), (StartByte, GetModemInfoCmd))
+
+@add_method(GetModemInfo)
+def description(self):
+  return "get modem info"
+
 pattern('ModemInfoResponse', (ReadFromModem,), (
   GetModemInfo, # echoed command
   InsteonAddress,
@@ -739,6 +761,14 @@ pattern('SendAllLinkCommand', (Echoed,), (
   StandardDirectCommand,
   Byte  # Command2
   ))
+
+@add_method(SendAllLinkCommand)
+def description(self):
+  return 'turn group %d %s' % (
+    self.LinkGroup.byte,
+    self.StandardDirectCommand.description()
+    )
+
 
 class MessageFlags(Flags):
   FlagBits = {

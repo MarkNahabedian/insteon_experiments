@@ -156,7 +156,7 @@ class TimeOffset(NextTimeFunction):
 class Event(object):
   '''Event is an action that can be scheduled and rescheduled.'''
   
-  def __init__(self, action_function, next_time_function):
+  def __init__(self, action_function, next_time_function, pretty=None):
     """next_time_function is called with two keyword arguments:
          now is the current time as a datetime,
          previous is ether None or the previous datetime this
@@ -167,6 +167,7 @@ class Event(object):
     self.action_function = action_function
     self.next_time_function = next_time_function
     self.when = None
+    self.pretty = pretty
 
   def schedule(self, previous=None):
     # It is expected that the next_time_function will not return a time

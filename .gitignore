@@ -1,1 +1,4 @@
 *.pyc
+HEARTBEAT
+STARTUP_LOG
+logs

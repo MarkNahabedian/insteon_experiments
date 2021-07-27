@@ -176,6 +176,8 @@ DEFAULT_PAGE_TEMPLATE = '''<html>
     <title>Home Control</title>
     <base href="/" target="_top" <base />
     <link rel="stylesheet" href="stylesheet.css" type="text/css" />
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1">
   </head>
   <body>
     <h1>Home Control</h1>

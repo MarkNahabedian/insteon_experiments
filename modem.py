@@ -56,20 +56,22 @@ class InsteonDevice(Device):
 
   @classmethod
   def lookup(cls, *args):
-    if len(args) == 1 and isinstance(args[0], InsteonAddress):
-      addr = args[0]
-    elif len(args) == 3:
-      addr = InsteonAddress(*args)
-    else:
-      raise Exception("Bad parameters %s" % repr(args))
+    addr = InsteonAddress(*args)
     if addr in cls.devices:
       return cls.devices[addr]
     return None
 
   @classmethod
   def list_devices(cls):
-    for d in cls.devices.values():
+    for d in cls:
       print(str(d))
+
+  @staticmethod
+  # If this method is called explicitly one can use the resulting
+  # iterator.  For some reason, the iter built-in function raises a
+  # TypeError rather than calling this method.
+  def __iter__():
+    return iter(InsteonDevice.devices.values())
 
   def __init__(self, insteonAddress):
     assert isinstance(insteonAddress, InsteonAddress)
@@ -81,10 +83,28 @@ class InsteonDevice(Device):
     self.category = None
     self.subcategory = None
     self.firmware_version = None
+    # Most recently received responses from this device
+    self.cmd1 = None
+    self.cmd2 = None
+    self.received_timestamp = None
     self.__class__.devices[self.address] = self
 
   def __repr__(self):
     return '%s(%r)' % (self.__class__.__name__, self.address)
+
+  def process_message_from_me(self, msg):
+    assert isinstance(msg, Translator)
+    pattern1 = StandardMessageReceived(
+      StartByte(), StandardMessageReceivedCode(),
+      FromAddress(self.address), MatchVariable("to_address"),
+      MatchVariable("message_flags"),
+      MatchVariable("cmd1"), MatchVariable("cmd2"))
+    m = match(msg, pattern1)
+    if m == False:
+      return
+    self.received_timestamp = config.now()
+    self.cmd1 = m["cmd1"]
+    self.cmd2 = m["cmd2"]
 
   def _simple_command(self, modem, cmd, cmd2):
     response_index = 0
@@ -129,12 +149,16 @@ class InsteonLinkGroup(object):
 
   @classmethod
   def lookup(cls, link_group):
+    if isinstance(link_group, int):
+      link_group = translator.LinkGroup(link_group)
     assert isinstance(link_group, translator.LinkGroup)
     if link_group in cls.groups:
       return cls.groups[link_group]
     return None
 
   def __init__(self, link_group, devices=[]):
+    if isinstance(link_group, int):
+      link_group = translator.LinkGroup(link_group)
     assert isinstance(link_group, translator.LinkGroup)
     if self.__class__.lookup(link_group):
       raise GroupExists(link_group)
@@ -164,7 +188,7 @@ class InsteonModem (object):
     self.serial.baudrate = 19200
     self.serial.timeout = 1
     self.devices = {}
-    pass
+    actions.run('onInsteonModemInitialized', modem=self)
 
   def __repr__(self):
     return 'InsteonModem(%r)' % (self.port_path,)
@@ -195,6 +219,22 @@ class InsteonModem (object):
                       bytes=msg)
     return msg
 
+  def process_incoming(self, bytes):
+    messages, end_index, err = interpret_all(bytes, ReadFromModem)
+    if end_index < len(bytes):
+      insteon_logging.info("failed to interpret all of byte array %r"
+                           % bytes)
+    if err:
+      insteon_logging.info("Exception %r while interpreting byte array %r"
+                           % (e, bytes))
+    for msg in messages:
+      for elt in msg:
+        if isinstance(elt, FromAddress):
+          device = InsteonDevice.lookup(elt)
+          if device:
+            device.process_message_from_me(msg)
+          break
+
   def modeminfo(self):
     self.sendCommand(bytearray(GetModemInfo().encode()))
     response = self.readResponse()
@@ -206,20 +246,6 @@ class InsteonModem (object):
       device.subcategory = i.Subcategory
       device.firmware_version = i.FirmwareVersion
     return device
-
-  def listen(self):
-    global debug
-    old_debug = debug
-    debug = False
-    try:
-      while True:
-        msg = self.readResponse()
-        if len(msg) == 0:
-          time.sleep(1)
-          continue
-        print(hexdump(msg))
-    finally:
-      debug = old_debug
 
   # Verify that the response echos the command
   def check_echo(self, command, response):
@@ -260,12 +286,12 @@ class InsteonModem (object):
 
   def groupOn(self, group_number):
     command = SendAllLinkCommand(LinkGroup(group_number), OnCmd(), Byte(0))
-    im.sendCommand(bytearray(command.encode()))
+    self.sendCommand(bytearray(command.encode()))
     response = self.readResponse()
 
   def groupOff(self, group_number):
     command = SendAllLinkCommand(LinkGroup(group_number), OffCmd(), Byte(0))
-    im.sendCommand(bytearray(command.encode()))
+    self.sendCommand(bytearray(command.encode()))
     response = self.readResponse()
 
 

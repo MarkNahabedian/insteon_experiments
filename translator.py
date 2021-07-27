@@ -15,6 +15,7 @@
 
 
 import abc
+from copy import copy
 from sys import stdout
 from singleton import Singleton
 
@@ -33,6 +34,46 @@ def dump(byteArray):
     if len(out) > 0: out += ' '
     out += '%02x' % b
   return out
+
+
+def add_method(cls):
+  def decorator(func):
+    setattr(cls, func.__name__, func)
+    pass
+  return decorator
+
+
+class MatchVariable(object):
+  """MatchVariable is a named, capturing placeholder which can appear in
+  the pattern argument of the match()."""
+
+  def __init__(self, name):
+    self.name = name
+
+  def __repr__(self):
+    return """MatchVariable("%s")""" % self.name
+
+  def match(self, value, matches):
+    if self.name in matches:
+      if value != matches[self.name]:
+        return False
+      else:
+        return matches
+    cpy = copy(matches)
+    cpy[self.name] = value
+    return cpy
+
+
+def match(thing, pattern, matches={}):
+  """Returns a dictionary associating MatchVariable names with values
+  iff thing matches pattern."""
+  if isinstance(pattern, MatchVariable):
+    return pattern.match(thing, matches)
+  if isinstance(thing, Translator):
+    return thing.match(pattern, matches)
+  if thing == pattern:
+    return matches
+  return False
 
 
 def interpret_all(msg, translator):
@@ -100,6 +141,26 @@ class Translator(object):
     raise Exception("No interpret method")
     pass
 
+  def description(self):
+    return None
+
+  def __iter__(self):
+    return iter([])
+
+  def match(self, pattern, matches):
+    """Does this object match pattern?  Returns False or a dictionary of
+    matches such that pattern matches self."""
+    if type(self) != type(pattern):
+      return False
+    m = matches
+    for slot_name in self.__class__.MATCH_SLOTS:
+      m = match(self.__getattribute__(slot_name),
+                pattern.__getattribute__(slot_name),
+                m)
+      if m == False:
+        return False
+    return m
+
 
 # See if the data can be interpreted as sone subclass of cls.
 def _interpret_as_subclass(cls, bytes, start_index):
@@ -121,7 +182,8 @@ def show_translators(to=stdout):
   def walk(tc, level):
     print('%s%s' % ('  '*level, tc._showstr()),
           file=to)
-    for sc in tc.__subclasses__():
+    for sc in sorted(tc.__subclasses__(),
+                     key=lambda c: c.__name__):
       walk(sc, level + 1)
   walk(Translator, 0)
 
@@ -134,6 +196,8 @@ def _showstr_name(cls):
 
 class Byte(Translator):
   '''Byte represents a single byte of any value.'''
+  MATCH_SLOTS = ["byte"]
+
   def __init__(self, value):
     self.byte = value
 
@@ -141,7 +205,9 @@ class Byte(Translator):
     return "Byte-%02x" % self.byte
 
   def __repr__(self):
-    return "%s(0x%02x)" % (self.__class__.__name__, self.byte)
+    if isinstance(self.byte, int):
+      return "%s(0x%02x)" % (self.__class__.__name__, self.byte)
+    return "%s(%r)" % (self.__class__.__name__, self.byte)
 
   def encode(self):
     return (self.byte,)
@@ -154,6 +220,10 @@ class Byte(Translator):
 
 class ByteCode(Translator):
   '''ByteCode is the superclass of all single byte codes that have a specific interpretation.'''
+  # If two instances of subclasses of ByteCode are of the same
+  # subclass then they match.
+  MATCH_SLOTS = []
+
   @classmethod
   def _showstr(cls):
     bc = cls.__dict__.get('byte_code', None)
@@ -168,14 +238,6 @@ class ByteCode(Translator):
   def byte_code_match(cls, byte_code):
     ### Maybe this should use acceptable_bytes
     return byte_code == cls.byte_code
-
-  @classmethod
-  def interpret(cls, bytes, start_index):
-    debug_interpretation("interpret", cls.__name__, start_index)
-    b = bytes[start_index]
-    if not cls.byte_code_match(b):
-      raise NoMatch(cls, bytes, start_index)
-    return cls(), 1
 
   @classmethod
   def acceptable_bytes(cls):
@@ -285,6 +347,13 @@ bytecodes('StandardDirectCommand',
 )
 
 
+@add_method(OnCmd)
+def description(self): return "on"
+
+@add_method(OffCmd)
+def description(self): return "off"
+
+
 # bytecodes('AllLinkCommand',
 #           OnCmd=0x11,
 #           OffCmd=0x13,
@@ -298,6 +367,8 @@ bytecodes('ButtonAction',
 
 class ButtonEvent(Translator):
   button_numbers = (1, 2, 3)
+
+  MATCH_SLOTS = ["button_number", "button_action"]
 
   def __init__(self, button_number, button_action):
     assert button_number in self.__class__.button_numbers
@@ -327,13 +398,29 @@ class ButtonEvent(Translator):
 
 
 class InsteonAddress(Translator):
+  MATCH_SLOTS = ["address1", "address2", "address3"]
+
   def __init__(self, *args):
     if len(args) == 1:
-      address1, address2, address3 = [
-        bytes.fromhex(b)[0]
-        for b in args[0].split('.')]
+      if isinstance(args[0], InsteonAddress):
+        # From an InsteonAddress.  This is used, for example to
+        # construct a different subtype of InsteonAddress
+        # (e.g. FromAddress) from a given InsteonAddress.
+        address1 = args[0].address1
+        address2 = args[0].address2
+        address3 = args[0].address3
+      else:
+        # From a string of three "." delimiter hex bytes,
+        # e.g. 0f.a1.be.
+        address1, address2, address3 = [
+          bytes.fromhex(b)[0]
+          for b in args[0].split('.')]
     elif len(args) == 3:
+      # From An array of three 8 bit integers
       address1, address2, address3 = args
+    else:
+      raise Exception("Bad initialization arguments %r for InstepnAddress"
+                      % args)
     self.address1 = address1
     self.address2 = address2
     self.address3 = address3
@@ -360,9 +447,9 @@ class InsteonAddress(Translator):
     debug_interpretation("interpret", cls.__name__, start_index)
     if start_index + 3 >= len(bytes):
       raise NoMatch(cls, bytes, start_index)
-    return InsteonAddress(bytes[start_index],
-                          bytes[start_index + 1],
-                          bytes[start_index + 2]), 3
+    return cls(bytes[start_index],
+               bytes[start_index + 1],
+               bytes[start_index + 2]), 3
 
   def __eq__(self, other):
     return (isinstance(other, InsteonAddress) and
@@ -413,6 +500,24 @@ class Pattern(Translator):
                                 # if isinstance(v, pt)]) > 0
                                 ]))
 
+  def __iter__(self):
+    for v in self.values:
+      yield v
+      for v1 in v:
+        yield v1
+
+  def match(self, pattern, matches):
+    if type(self) != type(pattern):
+      return False
+    m = matches
+    for index in range(len(self.values)):
+      sv = self.values[index]
+      pv = pattern.values[index]
+      m = match(sv, pv, m)
+      if m == False:
+        return False
+    return m
+
   def encode(self):
     msg = []
     for tt in self.values:
@@ -448,7 +553,7 @@ def pattern(name, superclasses, token_types):
   # nonconstant_token_types, but there are cases where we have a full
   # list of tokens that we want to initialize from without having to
   # filter out the constant ones, so our __init__ method should cope
-  # witheither set of initargs.
+  # with either set of initargs.
   if not nonconstant_token_types:
     superclasses = (Singleton,) + superclasses
   pat = type(name, superclasses, {})
@@ -461,7 +566,9 @@ def pattern(name, superclasses, token_types):
       self.values = []
       argindex = 0
       for tt in self.pattern:
-        if argindex < len(args) and isinstance(args[argindex], tt):
+        if argindex < len(args) and (
+            isinstance(args[argindex], tt) or
+            isinstance(args[argindex], MatchVariable)):
           v = args[argindex]
           argindex += 1
         else:
@@ -500,6 +607,11 @@ class Subcategory(Byte): pass
 class FirmwareVersion(Byte): pass
 
 pattern('GetModemInfo', (Command,), (StartByte, GetModemInfoCmd))
+
+@add_method(GetModemInfo)
+def description(self):
+  return "get modem info"
+
 pattern('ModemInfoResponse', (ReadFromModem,), (
   GetModemInfo, # echoed command
   InsteonAddress,
@@ -542,6 +654,13 @@ class Flags (Translator):
         val = val == 1
       args.append("%s=%r" % (key, val))
     return '%s(%s)' % (self.__class__.__name__, ', '.join(args))
+
+  def match(self, pattern, matches):
+    # NOT YET IMPLEMENTED.  For now we must use a MatchVariable to
+    # match Flags unless there is an exact match.
+    if self.flags == pattern.flags:
+      return matches
+    return False
 
   def encode(self):
     return (self.flags,)
@@ -642,6 +761,14 @@ pattern('SendAllLinkCommand', (Echoed,), (
   StandardDirectCommand,
   Byte  # Command2
   ))
+
+@add_method(SendAllLinkCommand)
+def description(self):
+  return 'turn group %d %s' % (
+    self.LinkGroup.byte,
+    self.StandardDirectCommand.description()
+    )
+
 
 class MessageFlags(Flags):
   FlagBits = {

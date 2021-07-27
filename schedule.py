@@ -98,7 +98,9 @@ class Every(NextTimeFunction):
   def __call__(self, now=config.now(), previous=None):
     '''Returns the next time that this should occur.'''
     if previous:
-      return previous + self.interval
+      next = previous + self.interval
+      if next > now:
+        return next
     return now
 
 
@@ -154,7 +156,7 @@ class TimeOffset(NextTimeFunction):
 class Event(object):
   '''Event is an action that can be scheduled and rescheduled.'''
   
-  def __init__(self, action_function, next_time_function):
+  def __init__(self, action_function, next_time_function, pretty=None):
     """next_time_function is called with two keyword arguments:
          now is the current time as a datetime,
          previous is ether None or the previous datetime this
@@ -165,6 +167,7 @@ class Event(object):
     self.action_function = action_function
     self.next_time_function = next_time_function
     self.when = None
+    self.pretty = pretty
 
   def schedule(self, previous=None):
     # It is expected that the next_time_function will not return a time
@@ -175,6 +178,7 @@ class Event(object):
       if next < now_:
         _log_scheduler_message(scheduler_operation='SCHEDULED_NEXT_BEFORE_NOW',
                                # action would be the same as sender in this case.
+                               action=self.action_function,
                                sender=self,
                                timestamp=now_,
 	                       when=next)
@@ -213,7 +217,7 @@ class Event(object):
     return('Event(%r, %r)' % (self.action_function, self.next_time_function))
 
 
-SCHEDULE_OPERAATION_LOG_LEVEL = {
+SCHEDULE_OPERATION_LOG_LEVEL = {
   'SCHEDULER_STARTED': logging.INFO,
   'EVENT_ACTION': logging.INFO,
   'EVENT_SCHEDULED': logging.INFO,
@@ -223,7 +227,7 @@ SCHEDULE_OPERAATION_LOG_LEVEL = {
 }
 
 def _log_scheduler_message(**args):
-  lvl = SCHEDULE_OPERAATION_LOG_LEVEL.get(args.get('scheduler_operation')) or logging.ERROR
+  lvl = SCHEDULE_OPERATION_LOG_LEVEL.get(args.get('scheduler_operation')) or logging.ERROR
   when = args.get('when')
   if when:
     when = when.strftime(config.TIME_FORMAT)

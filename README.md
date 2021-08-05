@@ -4,10 +4,10 @@ Experimenting with an Insteon modem and RaspberryPi.
 Status: 
 I've been using this package to control a few lights since late 2017.
 
-My old Insteon controller flaked out on me, so I'm replacing it with a
+My old Insteon controller flaked out on me, so I've replaced it with a
 SmartHome PowerLinc serial modem (model #2413S) and a RaspberryPi.
 This project is the python code I'm using to communicate with the
-modem and control things.
+modem and to control things.
 
 
 <h1>Dependencies</h1>
@@ -21,7 +21,7 @@ pip install tzlocal
 </pre>
 
 
-<h1>Generally Useful</h1>
+<h1>Files of General Use</h1>
 
 <b>singleton.py</b> is a simple implementation of the singleton design pattern
 copied from https://www.python.org/download/releases/2.2/descrintro/.

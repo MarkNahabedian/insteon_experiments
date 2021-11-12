@@ -192,3 +192,7 @@ to <tt>/etc/rc.local</tt>.
 http://www.madreporite.com/insteon/insteon.html
 </a> provides a bunch of links to links and documentation.
 
+<a href="https://docs.google.com/document/pub?id=1XDrgT4RXY5CPzBJ9P2IgQ26Wk2pDuozrmaimeN_TlSo">
+   Insteon FAQ
+</a>
+

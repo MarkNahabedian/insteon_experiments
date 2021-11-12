@@ -185,3 +185,10 @@ multi-user mode, I add this line
 
 to <tt>/etc/rc.local</tt>.
 
+
+<h1>Insteaon Resources</h1>
+
+<a href="http://www.madreporite.com/insteon/insteon.html">
+http://www.madreporite.com/insteon/insteon.html
+</a> provides a bunch of links to links and documentation.
+

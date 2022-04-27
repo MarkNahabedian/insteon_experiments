@@ -731,7 +731,7 @@ class LinkDBRecordFlags(Flags):
     'product_dependent': BitMask(2, 4),
     'reserved': BitMask(2, 2),  # should be 00
     # not_high_water_mark is 0 for a record that has never been
-    # allocated before. not_high_waterMack=0 only appears internally
+    # allocated before. not_high_water_mark=0 only appears internally
     # to the device.  It will never appear in a response.
     'not_high_water_mark': BitMask(1, 1),
     'reserved0': BitMask(1, 0)

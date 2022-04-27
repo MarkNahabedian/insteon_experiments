@@ -22,6 +22,8 @@ def logger():
 
 WEB_RESOURCES_DIR = 'web_resources'
 
+CONTROLLER_START_TIME = now()
+
 
 CONTENT_TYPE = {
   'css': 'text/css',
@@ -192,6 +194,7 @@ DEFAULT_PAGE_TEMPLATE = '''<html>
   <body>
     <h1>Home Control</h1>
     <p>Controller local time: {TIME}</p>
+    <p>Controller up since {CONTROLLER_START_TIME}</p>
     <h2>Link Groups</h2>
     <table class="link-groups">{LINK_GROUP_ROWS}</table>
     <h2>Devices</h2>
@@ -282,6 +285,7 @@ def main_page():
       'OVERDUE': 'overdue' if event.when < now() else ''
     })
   return DEFAULT_PAGE_TEMPLATE.format(**{
+    'CONTROLLER_START_TIME' = CONTROLLER_START_TIME.strftime(WEB_TIME_FORMAT),
     'TIME': now().strftime(WEB_TIME_FORMAT),
     'LINK_GROUP_ROWS': '\n'.join([lg_row(g) for g in modem.InsteonLinkGroup.groups.values()]),
     'DEVICE_ROWS': '\n'.join([device_row(d) for d in modem.InsteonDevice.devices.values()]),

@@ -285,7 +285,7 @@ def main_page():
       'OVERDUE': 'overdue' if event.when < now() else ''
     })
   return DEFAULT_PAGE_TEMPLATE.format(**{
-    'CONTROLLER_START_TIME' = CONTROLLER_START_TIME.strftime(WEB_TIME_FORMAT),
+    'CONTROLLER_START_TIME' : CONTROLLER_START_TIME.strftime(WEB_TIME_FORMAT),
     'TIME': now().strftime(WEB_TIME_FORMAT),
     'LINK_GROUP_ROWS': '\n'.join([lg_row(g) for g in modem.InsteonLinkGroup.groups.values()]),
     'DEVICE_ROWS': '\n'.join([device_row(d) for d in modem.InsteonDevice.devices.values()]),

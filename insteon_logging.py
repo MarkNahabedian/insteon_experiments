@@ -36,7 +36,7 @@ def _log_modem_traffic(sender, signal, timestamp, bytes):
   interpreted = []
   try:
     interpreted, _, _ = interpret_all(bytes, _signal_translators[signal])
-  except e:
+  except Exception as e:
     entry_list.append(str(e))
   finally:
     entry = '\n\t'.join(entry_list + [repr(i) for i in interpreted])

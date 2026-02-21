@@ -197,7 +197,6 @@ class Event(object):
     success = False
     try:
       self.action_function()
-      self.schedule(previous=self.when)
       success = True
     except Exception as e:
       # TODO Include the error in the log.
@@ -206,6 +205,8 @@ class Event(object):
                              timestamp=now_,
   	                     when=self.when,
                              action=self)
+    finally:
+      self.schedule(previous=self.when)
     if success:
       _log_scheduler_message(scheduler_operation='SCHEDULED_ACTION_DONE',
                              sender=self,

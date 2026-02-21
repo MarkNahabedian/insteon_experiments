@@ -17,6 +17,10 @@ pip install PyDispatcher
 </pre>
 
 <pre>
+pip install pySerial
+</pre>
+
+<pre>
 pip install tzlocal
 </pre>
 

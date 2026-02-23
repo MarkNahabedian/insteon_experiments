@@ -3,7 +3,7 @@
 # This module sends pydispatch signals with the following names:
 #
 #   'MODEM_COMMAND'     for receivers that care about what messages
-#                       are sent to the Insteon mode
+#                       are sent to the Insteon modem
 #   'MODEM_RESPONSE'    for messages that are received back from
 #                       the Insteon modem.
 

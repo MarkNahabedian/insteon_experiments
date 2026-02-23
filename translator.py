@@ -333,6 +333,15 @@ class InsteonExtendedMessage(InsteonMessage):
   __metaclass__ = abc.ABCMeta
 
 
+class StandardDirectOrExtendedCommand(ByteCode):
+  __metaclass__ = abc.ABCMeta
+
+class StandardDirectCommand(StandardDirectOrExtendedCommand):
+  __metaclass__ = abc.ABCMeta
+
+class StandardExtendedCommand(StandardDirectOrExtendedCommand):
+  __metaclass__ = abc.ABCMeta
+
 bytecodes('StandardDirectCommand',
           ZeroCmd=0x00,
           AssignToGroupCmd=0x01,
@@ -344,6 +353,10 @@ bytecodes('StandardDirectCommand',
           IdRequestCmd=0x10,
           StatusRequestCmd=0x19,
           SetOperatingFlagsCmd=0x20
+)
+
+bytecodes('StandardExtendedCommand',
+          ReadWriteAllLinkDatabaseCmd=0x2f
 )
 
 
@@ -753,7 +766,6 @@ pattern('Get1stLinkCommand', (ReadLinkDBCommand,),
 pattern('GetNextLinkCommand', (ReadLinkDBCommand,),
         (StartByte, GetNextLinkCmd))
 
-
 pattern('SendAllLinkCommand', (Echoed,), (
   StartByte,
   AllLinkCmd,
@@ -794,7 +806,7 @@ class Command2(Byte): pass
 
 pattern('SendMessageCommand', (Echoed,), (
   StartByte, SendMessageCmd, InsteonAddress,
-  MessageFlags, StandardDirectCommand, Command2))
+  MessageFlags, StandardDirectOrExtendedCommand, Command2))
 
 class FromAddress(InsteonAddress): pass
 
@@ -821,7 +833,7 @@ pattern('ExtendedMessageReceived', (StatusMessage,), (
   StartByte, ExtendedMessageReceivedCode,
   FromAddress, ToAddress,
   MessageFlags,
-  StandardDirectCommand,
+  StandardExtendedCommand,
   Byte,  # command 2
   UserData1, UserData2, UserData3, UserData4, UserData5,
   UserData6, UserData7, UserData8, UserData9, UserData10,
@@ -868,4 +880,9 @@ pattern('AllLinkRecordResponse', (StatusMessage,), (
 pattern('AllLinkCleanupStatus', (StatusMessage,), (
   StartByte, AllLinkCleanupStatusCode, AckNack
   ))
+
+
+with open("translators.txt", "w") as f:
+  print("This file is written by the show_translators function.", file=f)
+  show_translators(f)
 
